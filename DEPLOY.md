@@ -7,15 +7,18 @@ This app is a **static PWA** - perfect for GitHub Pages!
 ### Quick Deploy
 
 ```bash
-# 1. Make sure you have a GitHub repo
+# 1. Install dependencies
+npm install
+
+# 2. Make sure you have a GitHub repo
 git remote add origin https://github.com/YOUR_USERNAME/better-editor.git
 
-# 2. Push your code
+# 3. Push your code
 git add .
 git commit -m "Initial commit"
 git push -u origin main
 
-# 3. Deploy to GitHub Pages
+# 4. Deploy to GitHub Pages
 npm run deploy
 ```
 
@@ -61,6 +64,18 @@ git commit -m "Your changes"
 git push origin main
 npm run deploy
 ```
+
+**Note:** Service worker cache automatically updates with timestamp on each deploy, so users always get the latest version!
+
+### Auto-Deploy with GitHub Actions
+
+This repo includes a GitHub Actions workflow that auto-deploys on every push to main. Just:
+
+```bash
+git push origin main
+```
+
+And it deploys automatically! No need to run `npm run deploy`.
 
 ## 🔧 Custom Domain (Optional)
 

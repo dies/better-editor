@@ -1,6 +1,8 @@
-# Smart Note Editor
+# NotAIs
 
-> AI-powered two-panel note-taking app with real-time intelligent assistance
+> AI-powered note editor with real-time intelligent assistance
+
+**NotAIs** (pronounced "Notes") - A minimalist two-panel note editor that makes your writing smarter.
 
 A minimalist note editor that makes you smarter. Write in the left panel, see AI magic in the right panel - markdown preview, text polishing, math solving, and instant answers to your questions.
 
@@ -46,16 +48,19 @@ A minimalist note editor that makes you smarter. Write in the left panel, see AI
 ### Local Development
 
 ```bash
-# 1. Install dependencies
+# Install dependencies
 npm install
 
-# 2. Start dev server (auto-reload on file changes)
-./start.sh
-# or
+# Start dev server with auto-reload
 npm run dev
 ```
 
-Server runs at http://localhost:8000 with hot reload.
+Server runs at http://localhost:8000 with:
+- ✅ Auto-restart on file changes
+- ✅ **No caching** (always fresh code)
+- ✅ Service worker disabled for development
+
+**First time?** Just run `npm install && npm run dev` and you're done!
 
 ### Production Deployment
 
@@ -209,12 +214,19 @@ npm run deploy
 - **gh-pages** - One-command deployment
 - **Static PWA** - No build step needed!
 
-### Adding Features
+### Development Workflow
 
-1. Edit files in `js/` directory
-2. Nodemon auto-restarts server
-3. Refresh browser to see changes
-4. Deploy with `npm run deploy`
+```bash
+# 1. Start dev server (leave it running)
+npm run dev
+
+# 2. Edit files - server auto-restarts
+# 3. Refresh browser to see changes
+# 4. Commit and deploy
+git add .
+git commit -m "Your changes"
+npm run deploy
+```
 
 ## 🐛 Troubleshooting
 

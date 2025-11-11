@@ -1,4 +1,6 @@
-# AI-Powered Smart Note Editor - Product Specification
+# NotAIs - Product Specification
+
+**NotAIs** (pronounced "Notes") - AI-Powered Note Editor
 
 ## Core Vision
 A minimalist, two-panel note-taking application that combines a clean text editor with an AI-powered smart assistant panel. The app should feel like a modern, intelligent notepad that helps you write better, solve problems, and get instant answers.

@@ -1,13 +1,13 @@
 {
-  "name": "smart-note-editor",
+  "name": "notais",
   "version": "2.0.0",
-  "description": "AI-powered smart note editor with two-panel layout",
+  "description": "NotAIs - AI-powered note editor with intelligent assistance",
   "type": "module",
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js",
     "deploy": "gh-pages -d .",
-    "predeploy": "echo 'Preparing for GitHub Pages deployment...'"
+    "predeploy": "node -e \"console.log('📦 Deploying NotAIs to GitHub Pages...')\""
   },
   "keywords": [
     "note-editor",

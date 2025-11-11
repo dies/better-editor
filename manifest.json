@@ -1,7 +1,7 @@
 {
-  "name": "AI Text Editor",
-  "short_name": "AI Editor",
-  "description": "Minimalist AI-powered text editor with Monaco and OpenAI integration",
+  "name": "NotAIs - AI-Powered Note Editor",
+  "short_name": "NotAIs",
+  "description": "Intelligent note-taking with AI assistance - markdown preview, text polishing, math solving, and instant answers",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#1e1e1e",

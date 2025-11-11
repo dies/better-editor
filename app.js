@@ -1,4 +1,4 @@
-// AI Smart Note Editor - Main Application
+// NotAIs - AI-Powered Note Editor
 import { OpenAIClient } from './js/OpenAIClient.js';
 import { SmartPanel } from './js/SmartPanel.js';
 import { TextEditor } from './js/TextEditor.js';
@@ -6,7 +6,7 @@ import { TabManager } from './js/TabManager.js';
 import { SettingsManager } from './js/SettingsManager.js';
 import { FileHandler } from './js/FileHandler.js';
 
-class SmartNoteEditor {
+class NotAIs {
     constructor() {
         this.init();
     }
@@ -15,7 +15,9 @@ class SmartNoteEditor {
         // Register service worker
         if ('serviceWorker' in navigator) {
             try {
-                await navigator.serviceWorker.register('/service-worker.js');
+                const registration = await navigator.serviceWorker.register('/service-worker.js');
+                // Force update to get latest version
+                registration.update();
             } catch (error) {
                 console.error('Service Worker error:', error);
             }
@@ -24,32 +26,54 @@ class SmartNoteEditor {
         // Load Monaco
         await this.loadMonaco();
 
-        // Initialize managers
-        const settings = new SettingsManager(null);
-        this.settings = settings.load();
+        // Initialize settings FIRST to get theme
+        this.settingsManager = new SettingsManager(null);
+        this.settings = this.settingsManager.settings;
 
+        // Initialize OpenAI
         this.openAI = new OpenAIClient(this.settings.apiKey, this.settings.model);
-        settings.openAIClient = this.openAI;
-        this.settingsManager = settings;
+        this.settingsManager.openAIClient = this.openAI;
 
+        // Initialize managers
         this.tabManager = new TabManager();
         this.textEditor = new TextEditor(this.settings);
         this.smartPanel = new SmartPanel(this.openAI);
+        this.smartPanel.setEnabled(this.settings.smartPanelEnabled);
 
         // Create initial tab
-        this.tabManager.createTab('Welcome.md', '# Welcome to Smart Note Editor\n\nStart typing to see AI magic happen in the right panel!\n\n**Try:**\n- Writing some text (it will be polished)\n- Math: `100 - 20% =`\n- Questions: `5 EUR in UAH?`\n- Markdown formatting');
+        const welcomeText = `# Welcome to NotAIs
+
+Start typing to see AI magic in the right panel!
+
+**Try these:**
+- Write some text (AI will polish it)
+- Math: \`100 - 20% =\`
+- Questions: \`5 EUR in UAH?\`
+- Use markdown formatting
+
+The right panel will automatically:
+- Render markdown beautifully
+- Solve math problems
+- Answer questions
+- Polish your writing based on your custom prompt`;
+
+        this.tabManager.createTab('Welcome.md', welcomeText);
         
-        // Setup
-        this.setupEventListeners();
-        this.switchTab(this.tabManager.activeTabId);
+        // Apply theme BEFORE creating editor
         this.applyTheme();
         
-        console.log('✅ Smart Note Editor ready');
+        // Setup and render
+        this.setupEventListeners();
+        this.switchTab(this.tabManager.activeTabId);
+        
+        console.log('✅ NotAIs ready');
     }
 
     async loadMonaco() {
         return new Promise((resolve) => {
-            require.config({ paths: { vs: 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs' } });
+            require.config({ 
+                paths: { vs: 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs' } 
+            });
             require(['vs/editor/editor.main'], resolve);
         });
     }
@@ -58,7 +82,7 @@ class SmartNoteEditor {
         const tab = this.tabManager.getTab(tabId);
         if (!tab) return;
 
-        // Save current tab content
+        // Save current content
         const activeTab = this.tabManager.getActiveTab();
         if (activeTab && activeTab.id !== tabId) {
             activeTab.content = this.textEditor.getValue(activeTab.id);
@@ -67,7 +91,7 @@ class SmartNoteEditor {
         this.tabManager.switchToTab(tabId);
         const editor = this.textEditor.createEditor(tab);
 
-        // Setup editor listeners
+        // Editor listeners
         editor.onDidChangeModelContent(() => {
             const content = editor.getValue();
             this.tabManager.updateContent(tabId, content);
@@ -75,8 +99,7 @@ class SmartNoteEditor {
             this.updateStatus();
             
             // Update smart panel
-            const correctionPrompt = this.settings.correctionPrompt || 'Improve grammar and clarity';
-            this.smartPanel.scheduleUpdate(content, correctionPrompt);
+            this.smartPanel.scheduleUpdate(content, this.settings.correctionPrompt);
         });
 
         editor.onDidChangeCursorPosition(() => {
@@ -88,16 +111,14 @@ class SmartNoteEditor {
 
         // Initial smart panel update
         if (tab.content) {
-            const correctionPrompt = this.settings.correctionPrompt || 'Improve grammar and clarity';
-            this.smartPanel.scheduleUpdate(tab.content, correctionPrompt);
+            this.smartPanel.scheduleUpdate(tab.content, this.settings.correctionPrompt);
         }
     }
 
     closeTab(tabId) {
         if (this.tabManager.closeTab(tabId)) {
-            const activeId = this.tabManager.activeTabId;
             this.textEditor.deleteEditor(tabId);
-            this.switchTab(activeId);
+            this.switchTab(this.tabManager.activeTabId);
         }
     }
 
@@ -129,15 +150,15 @@ class SmartNoteEditor {
 
     updateStatus() {
         const tab = this.tabManager.getActiveTab();
+        if (!tab) return;
+
         const editor = this.textEditor.getEditor(tab.id);
-        
         if (editor) {
             const pos = editor.getPosition();
             document.getElementById('cursorPos').textContent = `Ln ${pos.lineNumber}, Col ${pos.column}`;
         }
 
-        const status = tab.modified ? 'Modified' : 'Saved';
-        document.getElementById('fileStatus').textContent = status;
+        document.getElementById('fileStatus').textContent = tab.modified ? 'Modified' : 'Saved';
     }
 
     setStatus(msg) {
@@ -173,7 +194,7 @@ class SmartNoteEditor {
     }
 
     setupEventListeners() {
-        // Toolbar
+        // Toolbar buttons
         document.getElementById('newTabBtn').onclick = () => {
             const tabId = this.tabManager.createTab();
             this.switchTab(tabId);
@@ -182,13 +203,15 @@ class SmartNoteEditor {
         document.getElementById('saveFileBtn').onclick = () => this.saveFile();
         document.getElementById('settingsBtn').onclick = () => this.settingsManager.showModal();
         document.getElementById('themeToggle').onclick = () => this.toggleTheme();
-        document.getElementById('toggleSmartPanel').onclick = () => this.smartPanel.toggle();
+        document.getElementById('togglePanel').onclick = () => this.smartPanel.toggle();
 
         // Settings modal
         document.getElementById('closeSettingsBtn').onclick = () => this.settingsManager.hideModal();
         document.getElementById('saveSettingsBtn').onclick = () => this.saveSettings();
         document.getElementById('settingsModal').onclick = (e) => {
-            if (e.target.id === 'settingsModal') this.settingsManager.hideModal();
+            if (e.target.id === 'settingsModal') {
+                this.settingsManager.hideModal();
+            }
         };
 
         // Keyboard shortcuts
@@ -216,7 +239,7 @@ class SmartNoteEditor {
     }
 }
 
-// Initialize app
+// Initialize when DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
-    window.app = new SmartNoteEditor();
+    window.app = new NotAIs();
 });
