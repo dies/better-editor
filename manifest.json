@@ -1,0 +1,48 @@
+{
+  "name": "AI Text Editor",
+  "short_name": "AI Editor",
+  "description": "Minimalist AI-powered text editor with Monaco and OpenAI integration",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#1e1e1e",
+  "theme_color": "#1e1e1e",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "logo.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "logo.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ],
+  "file_handlers": [
+    {
+      "action": "/",
+      "accept": {
+        "text/javascript": [".js", ".mjs"],
+        "text/plain": [".txt"],
+        "application/json": [".json"],
+        "text/html": [".html"],
+        "text/css": [".css"],
+        "text/markdown": [".md"],
+        "application/typescript": [".ts", ".tsx"]
+      }
+    }
+  ],
+  "categories": ["productivity", "development"],
+  "shortcuts": [
+    {
+      "name": "New File",
+      "short_name": "New",
+      "description": "Create a new file",
+      "url": "/?action=new"
+    }
+  ]
+}
+
