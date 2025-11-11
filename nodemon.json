@@ -1,0 +1,18 @@
+{
+  "watch": [
+    "server.js",
+    "*.html",
+    "*.css",
+    "js/**/*.js",
+    "manifest.json"
+  ],
+  "ext": "js,html,css,json",
+  "ignore": [
+    "node_modules/**",
+    ".git/**",
+    "*.log",
+    "*.md"
+  ],
+  "delay": "500"
+}
+

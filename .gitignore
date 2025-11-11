@@ -13,16 +13,19 @@ Thumbs.db
 *.log
 npm-debug.log*
 
-# Dependencies (if you add them later)
+# Dependencies
 node_modules/
 package-lock.json
 yarn.lock
 
-# Build files (if you add a build process)
+# Build files
 dist/
 build/
 
 # Environment
 .env
 .env.local
+
+# Cache
+.cache/
 

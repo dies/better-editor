@@ -1,233 +1,250 @@
-# AI Text Editor - Minimalist PWA
+# Smart Note Editor
 
-A powerful, minimalist text editor PWA with Monaco editor and OpenAI integration for intelligent code completion and AI assistance.
+> AI-powered two-panel note-taking app with real-time intelligent assistance
+
+A minimalist note editor that makes you smarter. Write in the left panel, see AI magic in the right panel - markdown preview, text polishing, math solving, and instant answers to your questions.
 
 ## ✨ Features
 
-### Core Features
-- 🎨 **Monaco Editor** - Full-featured code editor with syntax highlighting
-- ✨ **AI Edit Mode** - Split-panel code improvement with side-by-side comparison
-- 💬 **AI Chat Assistant** - Ask questions, get explanations, refactor code
-- 📱 **PWA Support** - Install as native app on macOS, Windows, Linux
-- 📁 **File Handlers** - Open .js, .txt, .ts, .json, .html, .css, .md files directly
+### Two-Panel Layout (Always Visible)
 
-### Productivity Features
-- 🗂️ **Multi-Tab Support** - Work with multiple files simultaneously
-- ⌨️ **Keyboard Shortcuts** - Full keyboard navigation
-- 🎯 **Command Palette** - Quick access to all commands (Cmd+P)
-- 💾 **File System Access** - Native open/save file dialogs
-- 🌓 **Dark/Light Themes** - Easy on the eyes
-- 📊 **Status Bar** - Line/column numbers, language detection
-- 🎭 **Minimalist Design** - Clean, distraction-free interface with vector logo
+**LEFT PANEL: Text Editor**
+- Clean Monaco editor configured for writing (not coding)
+- Markdown support with syntax highlighting
+- Word wrap, smooth scrolling
+- Distraction-free interface
 
-## 🚀 Getting Started
+**RIGHT PANEL: Smart Assistant**
+- **📄 Markdown Preview** - Live rendering as you type
+- **✍️ Text Polishing** - AI improves grammar, clarity, style (customizable)
+- **🧮 Math Solver** - Solves expressions like `100-20%`, `5+5`
+- **❓ Q&A** - Answers questions like "5 EUR in UAH?"
+- **🤖 AI Detection** - Automatically knows what you need
 
-### 1. Serve the Application
+### Intelligence
 
-You need to serve the app over HTTPS or localhost for PWA features to work.
+- Analyzes text in real-time (1 second after you stop typing)
+- Detects markdown → shows preview
+- Detects math → solves problems
+- Detects questions → provides answers
+- Applies your custom correction prompt to everything
 
-**Option A: Using Python (simplest)**
+### Customization
+
+- **Custom Correction Prompt** - Define how AI should improve your writing
+- **Model Selection** - Choose GPT-3.5 Turbo (fastest) to GPT-4o (smartest)
+- **Dark/Light Theme** - Easy on the eyes
+- **Font Size** - Adjust to your preference
+
+## 🚀 Quick Start
+
+### Prerequisites
+
+- Node.js (v16 or higher)
+- OpenAI API key
+
+### Local Development
+
 ```bash
-# Python 3
-python3 -m http.server 8000
+# 1. Install dependencies
+npm install
 
-# Then open: http://localhost:8000
+# 2. Start dev server (auto-reload on file changes)
+./start.sh
+# or
+npm run dev
 ```
 
-**Option B: Using Node.js**
+Server runs at http://localhost:8000 with hot reload.
+
+### Production Deployment
+
+**GitHub Pages (Recommended)**
+
 ```bash
-# Install serve globally
-npm install -g serve
-
-# Run
-serve -p 8000
-
-# Then open: http://localhost:8000
+# Deploy to GitHub Pages
+npm run deploy
 ```
 
-**Option C: Using PHP**
-```bash
-php -S localhost:8000
+Your app will be live at `https://YOUR_USERNAME.github.io/better-editor/`
+
+See [DEPLOY.md](DEPLOY.md) for detailed deployment instructions.
+
+## ⚙️ Configuration
+
+### 1. Set Your OpenAI API Key
+
+1. Click Settings (⚙️) or press `Cmd+,`
+2. Enter your API key from https://platform.openai.com/api-keys
+3. Choose your model (GPT-4o Mini recommended for balance)
+4. Click Save (key is verified before saving)
+
+### 2. Customize Correction Prompt
+
+Default: "Improve grammar, clarity, and style. Fix typos and suggest better phrasing."
+
+Examples:
+- "Make it more formal and professional"
+- "Simplify the language for beginners"
+- "Add more detail and examples"
+- "Make it concise and to the point"
+
+## 📝 Usage Examples
+
+### Writing & Polishing
+
+```
+You type:
+"The qick brown fox jumps over teh lazy dog"
+
+Smart Panel shows:
+✅ "The quick brown fox jumps over the lazy dog"
++ Grammar corrections highlighted
 ```
 
-### 2. Configure OpenAI API
+### Math Problems
 
-1. Click the **Settings** button (⚙️) or press `Cmd+,`
-2. Enter your OpenAI API key (get one at https://platform.openai.com/api-keys)
-3. Select your preferred model:
-   - **GPT-4o Mini** (recommended) - Fast and balanced
-   - **GPT-4o** - Most capable
-   - **GPT-3.5 Turbo** - Fastest
-4. Click "Save Settings"
-   - The app will verify your API key before saving
-   - You'll see "Verifying API Key..." while it checks
-   - Invalid keys will be rejected with an error message
+```
+You type:
+"I need to calculate 100 - 20% ="
 
-### 3. Install as PWA
+Smart Panel shows:
+🧮 Result: 80
+📝 Explanation: 20% of 100 is 20, so 100 - 20 = 80
+```
 
-**On macOS (Safari or Chrome):**
-1. Open the app in your browser
-2. Click the Share button or browser menu
-3. Select "Add to Dock" or "Install App"
-4. The app will now open .js and .txt files directly!
+### Currency & Conversions
 
-**On Chrome/Edge:**
-1. Click the install icon (⊕) in the address bar
-2. Click "Install"
+```
+You type:
+"How much is 5 EUR in UAH?"
+
+Smart Panel shows:
+💱 5 EUR ≈ 210 UAH
+📅 Rate as of [current date]
+```
+
+### Markdown Preview
+
+```
+You type:
+# My Notes
+This is **bold** and this is *italic*
+
+Smart Panel shows:
+[Beautiful rendered markdown]
+```
 
 ## ⌨️ Keyboard Shortcuts
 
-### File Operations
 - `Cmd+T` - New tab
 - `Cmd+O` - Open file
 - `Cmd+S` - Save file
 - `Cmd+W` - Close tab
-
-### Navigation
-- `Cmd+1-9` - Switch to tab 1-9
-- `Cmd+Tab` - Next tab
-- `Cmd+Shift+Tab` - Previous tab
-
-### AI Features
-- `Cmd+E` - Toggle AI Edit Mode (split-panel code improvement)
-- `Cmd+Shift+A` - Accept AI suggestions
-- `Cmd+Shift+R` - Reject AI suggestions
-- `Cmd+Shift+G` - Regenerate AI suggestions
-
-### Commands
-- `Cmd+P` - Command palette
-- `Cmd+K` - Toggle AI chat
 - `Cmd+,` - Settings
-- `Esc` - Dismiss modals
 
-## 🤖 AI Features
-
-### AI Edit Mode (Cmd+E)
-The star feature! Opens a split-panel view showing:
-- **Left panel**: Your original code
-- **Right panel**: AI-enhanced version
-- **Custom prompts**: Type specific instructions
-- **Accept/Reject**: Easy controls to apply or dismiss changes
-- **Regenerate**: Try different improvements
-
-Perfect for:
-- Code review and improvements
-- Adding comments and documentation
-- Refactoring and optimization
-- Fixing bugs and best practices
-
-### AI Chat Assistant (Cmd+K)
-- Ask questions about your code
-- Get explanations and suggestions
-- Context-aware (sees your current file)
-- Powered by GPT-4o-mini by default
-
-## 🎨 Customization
-
-All settings are available in the Settings panel (Cmd+,):
-
-- **API Key** - Your OpenAI API key (stored locally)
-- **Model** - Choose your preferred OpenAI model
-- **Autocomplete** - Enable/disable AI suggestions
-- **Autocomplete Delay** - Adjust trigger delay (500-5000ms)
-- **Font Size** - Editor font size (10-24px)
-- **Theme** - Toggle with the 🌙 button
-
-## 📁 File Handling
-
-The app registers handlers for:
-- JavaScript (`.js`, `.mjs`)
-- TypeScript (`.ts`, `.tsx`)
-- Text files (`.txt`)
-- JSON (`.json`)
-- HTML (`.html`)
-- CSS (`.css`)
-- Markdown (`.md`)
-
-Once installed as a PWA, you can:
-1. Right-click any supported file
-2. Choose "Open With"
-3. Select "AI Text Editor"
-4. File opens directly in the app!
-
-## 🔒 Privacy & Security
-
-- **API key verification** - Keys are validated before being saved
-- **API keys stored locally** - Never sent anywhere except OpenAI
-- **No tracking** - No analytics or data collection
-- **Offline capable** - Core features work without internet
-- **Local file access** - Files stay on your device
-
-## 🛠️ Technical Stack
+## 🛠️ Tech Stack
 
 - **Monaco Editor** - The editor that powers VS Code
-- **OpenAI API** - GPT-4o-mini for AI features
-- **Service Worker** - PWA offline support
-- **File System Access API** - Native file handling
-- **Web App Manifest** - PWA installation
-- **ES6 Modules** - Clean, modular code architecture
+- **OpenAI API** - GPT models for intelligence
+- **Marked.js** - Fast markdown parser
+- **Live Server** - Dev server with auto-reload
+- **Nodemon** - Auto-restart on file changes
+- **PWA** - Installable as native app
 
 ## 📁 Project Structure
 
 ```
 better-editor/
-├── index.html          # Main HTML file
-├── styles.css          # Global styles
-├── app.js             # Main application entry point
-├── logo.svg           # App logo
+├── index.html          # Main app HTML
+├── styles.css          # All styles
+├── app.js             # Main application
+├── logo.svg           # App icon
 ├── manifest.json      # PWA manifest
-├── service-worker.js  # Service worker for offline support
-└── js/                # Modular JavaScript code
-    ├── core/          # Core application logic
-    │   ├── TabManager.js
-    │   ├── EditorManager.js
-    │   └── FileOperations.js
-    ├── features/      # AI-powered features
-    │   ├── AIEditMode.js
-    │   ├── AIChat.js
-    │   └── AIAutocomplete.js
-    ├── ui/            # User interface components
-    │   ├── SettingsManager.js
-    │   ├── ThemeManager.js
-    │   ├── CommandPalette.js
-    │   ├── TabUI.js
-    │   └── StatusBar.js
-    └── utils/         # Utility classes
-        ├── OpenAIClient.js
-        ├── FileHandler.js
-        └── KeyboardShortcuts.js
+├── service-worker.js  # Offline support
+├── package.json       # Dependencies
+├── nodemon.json       # Auto-reload config
+└── js/
+    ├── OpenAIClient.js    # API client
+    ├── SmartPanel.js      # Right panel logic
+    ├── TextEditor.js      # Monaco config
+    ├── TabManager.js      # Tab handling
+    ├── SettingsManager.js # Settings
+    └── FileHandler.js     # File operations
 ```
 
-See [js/README.md](js/README.md) for detailed code structure documentation.
+## 🔒 Privacy & Security
+
+- API keys stored locally in browser (localStorage)
+- Never sent anywhere except OpenAI
+- No tracking or analytics
+- Files stay on your device
+- Works offline (PWA)
 
 ## 💡 Tips
 
-1. **AI Edit Mode** - Use Cmd+E for comprehensive code improvements instead of small autocomplete suggestions
-2. **Custom Prompts** - In AI Edit Mode, type specific instructions like "Add error handling" or "Make this more efficient"
-3. **AI Chat** - Use Cmd+K for questions and explanations about your code
-4. **Keyboard First** - Most actions have keyboard shortcuts (Cmd+P to see all)
-5. **Command Palette** - When in doubt, press Cmd+P to search commands
-6. **Fast Model** - GPT-4o-mini is perfect for quick code improvements
+1. **Start Simple** - Just start typing and watch the magic
+2. **Customize Prompts** - Make AI work the way YOU want
+3. **Use Markdown** - Format your notes beautifully
+4. **Ask Questions** - The AI is surprisingly smart
+5. **Do Math** - No need for calculator apps
 
-## 🚧 Future Ideas
+## 🚧 Development
 
-- [ ] Code snippets library
-- [ ] Git integration
-- [ ] Collaborative editing
-- [ ] Plugin system
-- [ ] More AI features (refactoring, testing, documentation)
-- [ ] Cloud sync (optional)
-- [ ] Mobile optimization
+```bash
+# Local dev server with auto-reload
+npm run dev
 
-## 📝 License
+# Production build
+npm start
 
-MIT License - Feel free to modify and use as you wish!
+# Deploy to GitHub Pages
+npm run deploy
+```
 
-## 🤝 Contributing
+### Stack
 
-This is a personal project, but suggestions and improvements are welcome!
+- **Express** - Simple local server
+- **Nodemon** - Auto-reload on changes
+- **gh-pages** - One-command deployment
+- **Static PWA** - No build step needed!
+
+### Adding Features
+
+1. Edit files in `js/` directory
+2. Nodemon auto-restarts server
+3. Refresh browser to see changes
+4. Deploy with `npm run deploy`
+
+## 🐛 Troubleshooting
+
+**"Port 8000 already in use"**
+```bash
+# Find and kill the process
+lsof -ti:8000 | xargs kill -9
+```
+
+**"API key invalid"**
+- Check your key at https://platform.openai.com/api-keys
+- Make sure you have credits/billing enabled
+
+**"Smart panel not updating"**
+- Check API key is set
+- Check browser console for errors
+- Verify internet connection
+
+## 📄 License
+
+MIT License - feel free to use and modify!
+
+## 🙏 Credits
+
+Built with love using:
+- Monaco Editor (Microsoft)
+- OpenAI API
+- Marked.js
+- Feather Icons
 
 ---
 
-**Enjoy your AI-powered text editor! 🚀**
-
+**Happy note-taking! ✨**

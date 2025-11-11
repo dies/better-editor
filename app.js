@@ -1,235 +1,222 @@
-// AI Text Editor - Main Application Entry Point
-// Modular architecture with clean separation of concerns
+// AI Smart Note Editor - Main Application
+import { OpenAIClient } from './js/OpenAIClient.js';
+import { SmartPanel } from './js/SmartPanel.js';
+import { TextEditor } from './js/TextEditor.js';
+import { TabManager } from './js/TabManager.js';
+import { SettingsManager } from './js/SettingsManager.js';
+import { FileHandler } from './js/FileHandler.js';
 
-import { OpenAIClient } from './js/utils/OpenAIClient.js';
-import { FileHandler } from './js/utils/FileHandler.js';
-import { KeyboardShortcuts } from './js/utils/KeyboardShortcuts.js';
-import { TabManager } from './js/core/TabManager.js';
-import { EditorManager } from './js/core/EditorManager.js';
-import { FileOperations } from './js/core/FileOperations.js';
-import { SettingsManager } from './js/ui/SettingsManager.js';
-import { ThemeManager } from './js/ui/ThemeManager.js';
-import { CommandPalette } from './js/ui/CommandPalette.js';
-import { TabUI } from './js/ui/TabUI.js';
-import { StatusBar } from './js/ui/StatusBar.js';
-import { AIChat } from './js/features/AIChat.js';
-import { AIEditMode } from './js/features/AIEditMode.js';
-import { AIAutocomplete } from './js/features/AIAutocomplete.js';
-
-class AITextEditor {
+class SmartNoteEditor {
     constructor() {
         this.init();
     }
 
     async init() {
         // Register service worker
-        await this.initServiceWorker();
-
-        // Initialize Monaco Editor
-        await this.initMonaco();
-
-        // Initialize core managers
-        this.tabManager = new TabManager();
-        this.editorManager = new EditorManager({});
-        this.editorManager.setContainer(document.getElementById('editorContainer'));
-
-        // Initialize OpenAI client
-        const storedSettings = JSON.parse(localStorage.getItem('editorSettings') || '{}');
-        this.openAIClient = new OpenAIClient(
-            storedSettings.apiKey || '',
-            storedSettings.model || 'gpt-4o-mini'
-        );
-
-        // Initialize UI managers
-        this.settingsManager = new SettingsManager(this.openAIClient);
-        this.themeManager = new ThemeManager(this.settingsManager);
-        this.commandPalette = new CommandPalette();
-        this.tabUI = new TabUI(this.tabManager);
-        this.statusBar = new StatusBar();
-
-        // Initialize features
-        this.fileOperations = new FileOperations(this.tabManager, this.editorManager);
-        this.aiChat = new AIChat(this.openAIClient, this.tabManager);
-        this.aiEditMode = new AIEditMode(
-            this.openAIClient,
-            this.tabManager,
-            this.editorManager,
-            this.settingsManager
-        );
-        this.aiAutocomplete = new AIAutocomplete(
-            this.openAIClient,
-            this.editorManager,
-            this.settingsManager
-        );
-
-        // Initialize keyboard shortcuts
-        this.shortcuts = new KeyboardShortcuts();
-        this.initKeyboardShortcuts();
-
-        // Setup event listeners
-        this.setupEventListeners();
-
-        // Setup callbacks
-        this.setupCallbacks();
-
-        // Initialize commands
-        this.initCommands();
-
-        // Create initial tab
-        this.tabManager.createTab('Untitled-1.txt');
-
-        // Apply theme
-        this.themeManager.apply();
-
-        // Show welcome message
-        if (!this.settingsManager.get('apiKey')) {
-            this.aiChat.showWelcomeMessage();
-        }
-
-        console.log('✅ AI Text Editor initialized');
-    }
-
-    async initServiceWorker() {
         if ('serviceWorker' in navigator) {
             try {
                 await navigator.serviceWorker.register('/service-worker.js');
-                console.log('Service Worker registered');
-                
-                // Handle file launches
-                if ('launchQueue' in window) {
-                    window.launchQueue.setConsumer(async (launchParams) => {
-                        if (launchParams.files && launchParams.files.length > 0) {
-                            for (const fileHandle of launchParams.files) {
-                                const fileData = await FileHandler.readFileHandle(fileHandle);
-                                const tabId = this.tabManager.createTab(fileData.name, fileData.content);
-                                const tab = this.tabManager.getTab(tabId);
-                                tab.fileHandle = fileData.fileHandle;
-                                tab.modified = false;
-                            }
-                        }
-                    });
-                }
             } catch (error) {
-                console.error('Service Worker registration failed:', error);
+                console.error('Service Worker error:', error);
             }
         }
+
+        // Load Monaco
+        await this.loadMonaco();
+
+        // Initialize managers
+        const settings = new SettingsManager(null);
+        this.settings = settings.load();
+
+        this.openAI = new OpenAIClient(this.settings.apiKey, this.settings.model);
+        settings.openAIClient = this.openAI;
+        this.settingsManager = settings;
+
+        this.tabManager = new TabManager();
+        this.textEditor = new TextEditor(this.settings);
+        this.smartPanel = new SmartPanel(this.openAI);
+
+        // Create initial tab
+        this.tabManager.createTab('Welcome.md', '# Welcome to Smart Note Editor\n\nStart typing to see AI magic happen in the right panel!\n\n**Try:**\n- Writing some text (it will be polished)\n- Math: `100 - 20% =`\n- Questions: `5 EUR in UAH?`\n- Markdown formatting');
+        
+        // Setup
+        this.setupEventListeners();
+        this.switchTab(this.tabManager.activeTabId);
+        this.applyTheme();
+        
+        console.log('✅ Smart Note Editor ready');
     }
 
-    async initMonaco() {
+    async loadMonaco() {
         return new Promise((resolve) => {
-            require.config({ 
-                paths: { vs: 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs' } 
-            });
-            require(['vs/editor/editor.main'], () => {
-                console.log('Monaco Editor loaded');
-                resolve();
-            });
+            require.config({ paths: { vs: 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs' } });
+            require(['vs/editor/editor.main'], resolve);
         });
     }
 
-    setupCallbacks() {
-        // Tab manager callbacks
-        this.tabManager.onTabChange = (tab) => {
-            const editor = this.editorManager.createEditor(tab);
+    switchTab(tabId) {
+        const tab = this.tabManager.getTab(tabId);
+        if (!tab) return;
+
+        // Save current tab content
+        const activeTab = this.tabManager.getActiveTab();
+        if (activeTab && activeTab.id !== tabId) {
+            activeTab.content = this.textEditor.getValue(activeTab.id);
+        }
+
+        this.tabManager.switchToTab(tabId);
+        const editor = this.textEditor.createEditor(tab);
+
+        // Setup editor listeners
+        editor.onDidChangeModelContent(() => {
+            const content = editor.getValue();
+            this.tabManager.updateContent(tabId, content);
+            this.tabManager.renderTabs();
+            this.updateStatus();
             
-            // Setup editor change listener
-            editor.onDidChangeModelContent(() => {
-                this.tabManager.updateTabContent(tab.id, editor.getValue());
-                this.statusBar.update(tab, editor);
-                
-                // Schedule autocomplete (disabled by default, using AI Edit Mode instead)
-                // this.aiAutocomplete.schedule(tab);
-            });
+            // Update smart panel
+            const correctionPrompt = this.settings.correctionPrompt || 'Improve grammar and clarity';
+            this.smartPanel.scheduleUpdate(content, correctionPrompt);
+        });
 
-            // Setup cursor position listener
-            editor.onDidChangeCursorPosition(() => {
-                this.statusBar.update(tab, editor);
-            });
+        editor.onDidChangeCursorPosition(() => {
+            this.updateStatus();
+        });
 
-            this.statusBar.update(tab, editor);
-        };
+        this.tabManager.renderTabs();
+        this.updateStatus();
 
-        this.tabManager.onTabsUpdate = (tabs, activeTabId) => {
-            this.tabUI.render(tabs, activeTabId);
-        };
+        // Initial smart panel update
+        if (tab.content) {
+            const correctionPrompt = this.settings.correctionPrompt || 'Improve grammar and clarity';
+            this.smartPanel.scheduleUpdate(tab.content, correctionPrompt);
+        }
+    }
 
-        // Settings manager callbacks
-        this.settingsManager.onSettingsChange = (settings) => {
-            this.editorManager.updateSettings(settings);
-            this.openAIClient.updateCredentials(settings.apiKey, settings.model);
-            this.themeManager.apply();
-        };
+    closeTab(tabId) {
+        if (this.tabManager.closeTab(tabId)) {
+            const activeId = this.tabManager.activeTabId;
+            this.textEditor.deleteEditor(tabId);
+            this.switchTab(activeId);
+        }
+    }
 
-        // AI Edit Mode callbacks
-        this.aiEditMode.onStatusChange = (message) => {
-            this.statusBar.setTemporaryStatus(message);
-        };
+    async openFile() {
+        const file = await FileHandler.openFile();
+        if (!file) return;
+
+        const tabId = this.tabManager.createTab(file.name, file.content);
+        const tab = this.tabManager.getTab(tabId);
+        tab.fileHandle = file.handle;
+        tab.modified = false;
+        this.switchTab(tabId);
+    }
+
+    async saveFile() {
+        const tab = this.tabManager.getActiveTab();
+        if (!tab) return;
+
+        const content = this.textEditor.getValue(tab.id);
+        const result = await FileHandler.saveFile(tab.fileHandle, tab.filename, content);
+
+        if (result.success) {
+            tab.fileHandle = result.handle;
+            this.tabManager.markSaved(tab.id, result.filename);
+            this.tabManager.renderTabs();
+            this.setStatus('Saved ✓');
+        }
+    }
+
+    updateStatus() {
+        const tab = this.tabManager.getActiveTab();
+        const editor = this.textEditor.getEditor(tab.id);
+        
+        if (editor) {
+            const pos = editor.getPosition();
+            document.getElementById('cursorPos').textContent = `Ln ${pos.lineNumber}, Col ${pos.column}`;
+        }
+
+        const status = tab.modified ? 'Modified' : 'Saved';
+        document.getElementById('fileStatus').textContent = status;
+    }
+
+    setStatus(msg) {
+        document.getElementById('fileStatus').textContent = msg;
+        setTimeout(() => this.updateStatus(), 2000);
+    }
+
+    applyTheme() {
+        if (this.settings.theme === 'light') {
+            document.body.classList.add('light-theme');
+        } else {
+            document.body.classList.remove('light-theme');
+        }
+    }
+
+    toggleTheme() {
+        this.settings.theme = this.settings.theme === 'dark' ? 'light' : 'dark';
+        this.settingsManager.settings.theme = this.settings.theme;
+        this.settingsManager.save();
+        this.applyTheme();
+        this.textEditor.updateSettings(this.settings);
+    }
+
+    async saveSettings() {
+        const saved = await this.settingsManager.saveFromUI();
+        if (saved) {
+            this.settings = this.settingsManager.settings;
+            this.openAI.updateCredentials(this.settings.apiKey, this.settings.model);
+            this.textEditor.updateSettings(this.settings);
+            this.smartPanel.setEnabled(this.settings.smartPanelEnabled);
+            this.setStatus('Settings saved ✓');
+        }
     }
 
     setupEventListeners() {
-        this.fileOperations.setupEventListeners();
-        this.settingsManager.setupEventListeners();
-        this.themeManager.setupEventListeners();
-        this.commandPalette.setupEventListeners();
-        this.aiChat.setupEventListeners();
-        this.aiEditMode.setupEventListeners();
-        this.shortcuts.setupGlobalListener();
-    }
+        // Toolbar
+        document.getElementById('newTabBtn').onclick = () => {
+            const tabId = this.tabManager.createTab();
+            this.switchTab(tabId);
+        };
+        document.getElementById('openFileBtn').onclick = () => this.openFile();
+        document.getElementById('saveFileBtn').onclick = () => this.saveFile();
+        document.getElementById('settingsBtn').onclick = () => this.settingsManager.showModal();
+        document.getElementById('themeToggle').onclick = () => this.toggleTheme();
+        document.getElementById('toggleSmartPanel').onclick = () => this.smartPanel.toggle();
 
-    initKeyboardShortcuts() {
-        this.shortcuts.register('t', () => this.tabManager.createTab(), { cmd: true });
-        this.shortcuts.register('o', () => this.fileOperations.openFile(), { cmd: true });
-        this.shortcuts.register('s', () => this.fileOperations.saveFile(), { cmd: true });
-        this.shortcuts.register('w', () => this.tabManager.closeTab(this.tabManager.activeTabId), { cmd: true });
-        this.shortcuts.register('e', () => this.aiEditMode.toggle(), { cmd: true });
-        this.shortcuts.register('p', () => this.commandPalette.show(), { cmd: true });
-        this.shortcuts.register('k', () => this.aiChat.toggle(), { cmd: true });
-        this.shortcuts.register(',', () => this.settingsManager.showModal(), { cmd: true });
-        this.shortcuts.register('tab', () => this.tabManager.nextTab(), { cmd: true });
-        this.shortcuts.register('tab', () => this.tabManager.previousTab(), { cmd: true, shift: true });
-        
-        // AI Edit Mode shortcuts
-        this.shortcuts.register('a', () => this.aiEditMode.accept(), { cmd: true, shift: true });
-        this.shortcuts.register('r', () => this.aiEditMode.reject(), { cmd: true, shift: true });
-        this.shortcuts.register('g', () => this.aiEditMode.regenerate(), { cmd: true, shift: true });
-        
-        // Tab number shortcuts (Cmd+1-9)
-        for (let i = 1; i <= 9; i++) {
-            this.shortcuts.register(i.toString(), () => {
-                const tab = this.tabManager.getTabByIndex(i - 1);
-                if (tab) this.tabManager.switchToTab(tab.id);
-            }, { cmd: true });
-        }
+        // Settings modal
+        document.getElementById('closeSettingsBtn').onclick = () => this.settingsManager.hideModal();
+        document.getElementById('saveSettingsBtn').onclick = () => this.saveSettings();
+        document.getElementById('settingsModal').onclick = (e) => {
+            if (e.target.id === 'settingsModal') this.settingsManager.hideModal();
+        };
 
-        // Escape to hide things
-        this.shortcuts.register('escape', () => {
-            this.aiAutocomplete.hide();
-            this.commandPalette.hide();
+        // Keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            const cmd = navigator.platform.match('Mac') ? e.metaKey : e.ctrlKey;
+            
+            if (cmd && e.key === 't') {
+                e.preventDefault();
+                const tabId = this.tabManager.createTab();
+                this.switchTab(tabId);
+            } else if (cmd && e.key === 'o') {
+                e.preventDefault();
+                this.openFile();
+            } else if (cmd && e.key === 's') {
+                e.preventDefault();
+                this.saveFile();
+            } else if (cmd && e.key === 'w') {
+                e.preventDefault();
+                this.closeTab(this.tabManager.activeTabId);
+            } else if (cmd && e.key === ',') {
+                e.preventDefault();
+                this.settingsManager.showModal();
+            }
         });
-    }
-
-    initCommands() {
-        const commands = [
-            { name: 'New Tab', shortcut: 'Cmd+T', action: () => this.tabManager.createTab() },
-            { name: 'Open File', shortcut: 'Cmd+O', action: () => this.fileOperations.openFile() },
-            { name: 'Save File', shortcut: 'Cmd+S', action: () => this.fileOperations.saveFile() },
-            { name: 'Close Tab', shortcut: 'Cmd+W', action: () => this.tabManager.closeTab(this.tabManager.activeTabId) },
-            { name: 'AI Edit Mode', shortcut: 'Cmd+E', action: () => this.aiEditMode.toggle() },
-            { name: 'Settings', shortcut: 'Cmd+,', action: () => this.settingsManager.showModal() },
-            { name: 'AI Chat', shortcut: 'Cmd+K', action: () => this.aiChat.toggle() },
-            { name: 'Toggle Theme', shortcut: '', action: () => this.themeManager.toggle() },
-            { name: 'Next Tab', shortcut: 'Cmd+Tab', action: () => this.tabManager.nextTab() },
-            { name: 'Previous Tab', shortcut: 'Cmd+Shift+Tab', action: () => this.tabManager.previousTab() },
-            { name: 'Accept AI Edit', shortcut: 'Cmd+Shift+A', action: () => this.aiEditMode.accept() },
-            { name: 'Reject AI Edit', shortcut: 'Cmd+Shift+R', action: () => this.aiEditMode.reject() },
-            { name: 'Regenerate AI Edit', shortcut: 'Cmd+Shift+G', action: () => this.aiEditMode.regenerate() }
-        ];
-
-        this.commandPalette.registerCommands(commands);
     }
 }
 
-// Initialize app when DOM is ready
+// Initialize app
 document.addEventListener('DOMContentLoaded', () => {
-    window.app = new AITextEditor();
+    window.app = new SmartNoteEditor();
 });
