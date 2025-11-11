@@ -1,4 +1,6 @@
 // Smart Panel - AI-powered analysis and preview
+import { MarkdownParser } from './MarkdownParser.js';
+
 export class SmartPanel {
     constructor(openAIClient) {
         this.openAIClient = openAIClient;
@@ -6,6 +8,7 @@ export class SmartPanel {
         this.updateTimeout = null;
         this.lastContent = '';
         this.isEnabled = true;
+        this.onStatusChange = null;
     }
 
     setEnabled(enabled) {
@@ -39,13 +42,18 @@ export class SmartPanel {
         try {
             // Check if it's markdown
             if (this.isMarkdown(content)) {
+                this.setStatus('Rendering markdown...');
                 await this.renderMarkdown(content);
+                this.setStatus('Ready');
             } else {
+                this.setStatus('AI analyzing...');
                 await this.renderAnalysis(content, correctionPrompt);
+                this.setStatus('Ready');
             }
         } catch (error) {
             console.error('Smart panel error:', error);
             this.showMessage(`Error: ${error.message}`, 'error');
+            this.setStatus('Error');
         }
     }
 
@@ -65,47 +73,55 @@ export class SmartPanel {
     }
 
     async renderMarkdown(content) {
-        // Load marked.js if not already loaded
-        if (typeof marked === 'undefined') {
-            await this.loadMarked();
+        try {
+            const html = MarkdownParser.parse(content);
+            this.container.innerHTML = `<div class="markdown-content">${html}</div>`;
+        } catch (error) {
+            console.error('Markdown rendering error:', error);
+            this.showMessage(`Markdown error: ${error.message}`, 'error');
         }
-
-        const html = marked.parse(content);
-        this.container.innerHTML = `
-            <div class="panel-section">
-                <h4>📄 Markdown Preview</h4>
-                <div class="markdown-content">${html}</div>
-            </div>
-        `;
     }
 
     async renderAnalysis(content, correctionPrompt) {
         if (!this.openAIClient.apiKey) {
             this.showMessage('Set your OpenAI API key in settings to enable smart features', 'info');
+            this.setStatus('No API key');
             return;
         }
 
-        const analysis = await this.openAIClient.analyze(content, correctionPrompt, 'text');
-        this.container.innerHTML = `<div class="smart-analysis">${analysis}</div>`;
+        this.container.innerHTML = '<pre class="smart-analysis streaming"></pre>';
+        const analysisPre = this.container.querySelector('.smart-analysis');
+
+        try {
+            await this.openAIClient.analyzeStreaming(
+                content,
+                correctionPrompt,
+                'text',
+                // On chunk
+                (partialContent) => {
+                    analysisPre.textContent = partialContent;
+                    this.setStatus('AI streaming...');
+                },
+                // On complete
+                (fullContent) => {
+                    analysisPre.textContent = fullContent;
+                    analysisPre.classList.remove('streaming');
+                    this.setStatus('Ready');
+                }
+            );
+        } catch (error) {
+            throw error;
+        }
     }
 
     showMessage(text, type = 'empty') {
-        this.container.innerHTML = `<div class="smart-panel-${type}">${text}</div>`;
+        this.container.innerHTML = `<div class="panel-${type}">${text}</div>`;
     }
 
-    async loadMarked() {
-        return new Promise((resolve, reject) => {
-            const script = document.createElement('script');
-            script.src = 'https://cdn.jsdelivr.net/npm/marked/marked.min.js';
-            script.onload = resolve;
-            script.onerror = reject;
-            document.head.appendChild(script);
-        });
-    }
-
-    toggle() {
-        const panel = document.getElementById('smartPanel');
-        panel.classList.toggle('collapsed');
+    setStatus(message) {
+        if (this.onStatusChange) {
+            this.onStatusChange(message);
+        }
     }
 }
 

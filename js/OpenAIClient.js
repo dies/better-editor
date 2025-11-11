@@ -32,61 +32,87 @@ export class OpenAIClient {
         }
     }
 
-    async analyze(content, correctionPrompt, contentType) {
-        const response = await fetch('https://api.openai.com/v1/chat/completions', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${this.apiKey}`
-            },
-            body: JSON.stringify({
-                model: this.model,
-                messages: [
-                    { 
-                        role: 'system', 
-                        content: 'You are a helpful writing assistant. Analyze text, solve math problems, answer questions, and provide corrections. Always respond with clear, well-formatted HTML.'
-                    },
-                    { 
-                        role: 'user', 
-                        content: this.buildAnalysisPrompt(content, correctionPrompt, contentType)
+    async analyzeStreaming(content, correctionPrompt, contentType, onChunk, onComplete) {
+        try {
+            const response = await fetch('https://api.openai.com/v1/chat/completions', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${this.apiKey}`
+                },
+                body: JSON.stringify({
+                    model: this.model,
+                    messages: [
+                        { 
+                            role: 'system', 
+                            content: 'You are a helpful writing assistant. Analyze text, solve math problems, answer questions, and provide corrections. Always respond with clear, well-formatted HTML.'
+                        },
+                        { 
+                            role: 'user', 
+                            content: this.buildAnalysisPrompt(content, correctionPrompt, contentType)
+                        }
+                    ],
+                    temperature: 0.7,
+                    stream: true
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error(`API error: ${response.statusText}`);
+            }
+
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let fullContent = '';
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+
+                const chunk = decoder.decode(value);
+                const lines = chunk.split('\n').filter(line => line.trim() !== '');
+
+                for (const line of lines) {
+                    if (line.startsWith('data: ')) {
+                        const data = line.slice(6);
+                        if (data === '[DONE]') continue;
+
+                        try {
+                            const parsed = JSON.parse(data);
+                            const content = parsed.choices[0]?.delta?.content;
+                            if (content) {
+                                fullContent += content;
+                                onChunk(fullContent);
+                            }
+                        } catch (e) {
+                            // Skip parse errors
+                        }
                     }
-                ],
-                temperature: 0.7
-            })
-        });
+                }
+            }
 
-        if (!response.ok) {
-            throw new Error(`API error: ${response.statusText}`);
+            onComplete(fullContent);
+        } catch (error) {
+            throw error;
         }
-
-        const data = await response.json();
-        return data.choices[0].message.content;
     }
 
     buildAnalysisPrompt(content, correctionPrompt, contentType) {
-        let prompt = `Analyze the following text:\n\n${content}\n\n`;
+        // Smart panel now ONLY does text correction, no math or questions
+        // Those are handled inline by InlineSolver
         
-        // Detect what kind of content this is
-        const hasMath = /\d+\s*[\+\-\*\/]\s*\d+|%|sqrt|squared/.test(content);
-        const hasQuestion = /\?|how much|what is|convert|in\s+[A-Z]{3}/i.test(content);
+        const prompt = `${correctionPrompt}\n\nOriginal text:\n${content}\n\n`;
+        const rules = 'CRITICAL RULES:\n';
+        const instructions = [
+            '- Return ONLY the corrected text',
+            '- Do NOT add any comments, explanations, or notes',
+            '- Do NOT add headers like "Corrected version:" or similar', 
+            '- Preserve all line breaks exactly as in the original',
+            '- Ignore any math expressions or questions - just improve the writing',
+            '- Just return the improved text, nothing else'
+        ];
         
-        if (hasMath) {
-            prompt += '\n**Math Detection**: This content contains mathematical expressions. Calculate all results and explain your work.\n';
-        }
-        
-        if (hasQuestion) {
-            prompt += '\n**Question Detection**: This content contains questions. Answer them clearly and accurately. For currency conversions, provide current rates.\n';
-        }
-        
-        prompt += `\n**Correction Task**: ${correctionPrompt}\n`;
-        prompt += '\n**Output Format**: Provide your response in clean HTML with:';
-        prompt += '\n- Use <h4> for section headings';
-        prompt += '\n- Use <div class="math-result"> for math answers';
-        prompt += '\n- Use <div class="answer"> for question answers';
-        prompt += '\n- Use <div class="correction"> for text corrections';
-        prompt += '\n- Keep it concise and helpful';
-        
-        return prompt;
+        return prompt + rules + instructions.join('\n');
     }
 }
 

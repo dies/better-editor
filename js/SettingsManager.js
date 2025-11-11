@@ -9,8 +9,7 @@ export class SettingsManager {
         const defaults = {
             apiKey: '',
             model: 'gpt-4o-mini',
-            fontSize: 16,
-            theme: 'dark',
+            theme: 'system',
             smartPanelEnabled: true,
             correctionPrompt: 'Improve grammar, clarity, and style. Fix typos and suggest better phrasing.'
         };
@@ -31,7 +30,7 @@ export class SettingsManager {
         document.getElementById('settingsModal').classList.remove('hidden');
         document.getElementById('apiKey').value = this.settings.apiKey;
         document.getElementById('model').value = this.settings.model;
-        document.getElementById('fontSize').value = this.settings.fontSize;
+        document.getElementById('theme').value = this.settings.theme;
         document.getElementById('smartPanelEnabled').checked = this.settings.smartPanelEnabled;
         document.getElementById('correctionPrompt').value = this.settings.correctionPrompt;
     }
@@ -63,7 +62,7 @@ export class SettingsManager {
 
         this.settings.apiKey = apiKey;
         this.settings.model = model;
-        this.settings.fontSize = parseInt(document.getElementById('fontSize').value);
+        this.settings.theme = document.getElementById('theme').value;
         this.settings.smartPanelEnabled = document.getElementById('smartPanelEnabled').checked;
         this.settings.correctionPrompt = document.getElementById('correctionPrompt').value.trim();
 

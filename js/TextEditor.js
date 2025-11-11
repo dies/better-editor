@@ -12,13 +12,22 @@ export class TextEditor {
         let editor = this.editors.get(tab.id);
         
         if (!editor) {
-            const theme = this.settings.theme === 'light' ? 'vs' : 'vs-dark';
+            // Determine theme
+            let isDark = true;
+            if (this.settings.theme === 'system') {
+                isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+            } else {
+                isDark = this.settings.theme === 'dark';
+            }
+            const theme = isDark ? 'vs-dark' : 'vs';
             
             editor = monaco.editor.create(this.container, {
                 value: tab.content,
                 language: tab.language || 'markdown',
                 theme: theme,
-                fontSize: this.settings.fontSize,
+                fontSize: 14, // Fixed to match right panel
+                fontFamily: 'Consolas, Courier New, monospace',
+                lineHeight: 19,
                 automaticLayout: true,
                 
                 // Text editor config (not code editor)
@@ -73,11 +82,21 @@ export class TextEditor {
 
     updateSettings(settings) {
         this.settings = settings;
-        const theme = settings.theme === 'light' ? 'vs' : 'vs-dark';
+        
+        let isDark = true;
+        if (settings.theme === 'system') {
+            isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        } else {
+            isDark = settings.theme === 'dark';
+        }
+        
+        const theme = isDark ? 'vs-dark' : 'vs';
         
         this.editors.forEach(editor => {
             editor.updateOptions({
-                fontSize: settings.fontSize,
+                fontSize: 14, // Always 14 to match right panel
+                fontFamily: 'Consolas, Courier New, monospace',
+                lineHeight: 19,
                 theme: theme
             });
         });

@@ -152,8 +152,8 @@ Smart Panel shows:
 
 - **Monaco Editor** - The editor that powers VS Code
 - **OpenAI API** - GPT models for intelligence
-- **Marked.js** - Fast markdown parser
-- **Live Server** - Dev server with auto-reload
+- **Custom Markdown Parser** - Lightweight, works offline
+- **Express** - Local dev server
 - **Nodemon** - Auto-restart on file changes
 - **PWA** - Installable as native app
 

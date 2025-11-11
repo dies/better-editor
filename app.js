@@ -5,6 +5,7 @@ import { TextEditor } from './js/TextEditor.js';
 import { TabManager } from './js/TabManager.js';
 import { SettingsManager } from './js/SettingsManager.js';
 import { FileHandler } from './js/FileHandler.js';
+import { InlineSolver } from './js/InlineSolver.js';
 
 class NotAIs {
     constructor() {
@@ -39,28 +40,30 @@ class NotAIs {
         this.textEditor = new TextEditor(this.settings);
         this.smartPanel = new SmartPanel(this.openAI);
         this.smartPanel.setEnabled(this.settings.smartPanelEnabled);
+        this.inlineSolver = new InlineSolver(this.openAI);
+        
+        // Connect smart panel status to UI
+        this.smartPanel.onStatusChange = (message) => {
+            this.setAIStatus(message);
+        };
 
-        // Create initial tab
-        const welcomeText = `# Welcome to NotAIs
+        // Initialize commands
+        this.commands = this.initCommands();
 
-Start typing to see AI magic in the right panel!
-
-**Try these:**
-- Write some text (AI will polish it)
-- Math: \`100 - 20% =\`
-- Questions: \`5 EUR in UAH?\`
-- Use markdown formatting
-
-The right panel will automatically:
-- Render markdown beautifully
-- Solve math problems
-- Answer questions
-- Polish your writing based on your custom prompt`;
-
-        this.tabManager.createTab('Welcome.md', welcomeText);
+        // Create initial empty tab
+        this.tabManager.createTab('Untitled.md', '');
         
         // Apply theme BEFORE creating editor
         this.applyTheme();
+        
+        // Listen for system theme changes
+        if (window.matchMedia) {
+            window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+                if (this.settings.theme === 'system') {
+                    this.applyTheme();
+                }
+            });
+        }
         
         // Setup and render
         this.setupEventListeners();
@@ -92,13 +95,27 @@ The right panel will automatically:
         const editor = this.textEditor.createEditor(tab);
 
         // Editor listeners
-        editor.onDidChangeModelContent(() => {
+        let lastLineCount = editor.getModel().getLineCount();
+        
+        editor.onDidChangeModelContent((e) => {
             const content = editor.getValue();
             this.tabManager.updateContent(tabId, content);
             this.tabManager.renderTabs();
             this.updateStatus();
             
-            // Update smart panel
+            // Check for inline solving on the changed line
+            if (e.changes.length > 0) {
+                const change = e.changes[0];
+                const lineNumber = change.range.startLineNumber;
+                const lineContent = editor.getModel().getLineContent(lineNumber);
+                
+                // Only process if line ends with = and we just typed it
+                if (lineContent.trim().endsWith('=')) {
+                    this.inlineSolver.processLine(editor, lineNumber, lineContent);
+                }
+            }
+            
+            // Update smart panel (but exclude math/questions from going there)
             this.smartPanel.scheduleUpdate(content, this.settings.correctionPrompt);
         });
 
@@ -166,20 +183,110 @@ The right panel will automatically:
         setTimeout(() => this.updateStatus(), 2000);
     }
 
-    applyTheme() {
-        if (this.settings.theme === 'light') {
-            document.body.classList.add('light-theme');
+    setAIStatus(msg) {
+        const statusEl = document.getElementById('aiStatus');
+        if (!msg || msg === 'Ready') {
+            statusEl.textContent = '';
+            statusEl.classList.remove('active');
         } else {
-            document.body.classList.remove('light-theme');
+            statusEl.textContent = `🤖 ${msg}`;
+            statusEl.classList.add('active');
         }
     }
 
-    toggleTheme() {
-        this.settings.theme = this.settings.theme === 'dark' ? 'light' : 'dark';
-        this.settingsManager.settings.theme = this.settings.theme;
-        this.settingsManager.save();
-        this.applyTheme();
-        this.textEditor.updateSettings(this.settings);
+    copySmartPanelContent() {
+        const content = document.getElementById('smartPanelContent').textContent;
+        navigator.clipboard.writeText(content).then(() => {
+            this.setStatus('Copied to clipboard ✓');
+        }).catch(err => {
+            console.error('Copy failed:', err);
+            this.setStatus('Copy failed');
+        });
+    }
+
+    replaceWithSmartPanelContent() {
+        const tab = this.tabManager.getActiveTab();
+        if (!tab) return;
+
+        const smartContent = document.getElementById('smartPanelContent').textContent;
+        
+        // Get only the actual content, not the placeholder text
+        if (smartContent.includes('Start typing') || smartContent.includes('Set your OpenAI')) {
+            return;
+        }
+
+        this.textEditor.setValue(tab.id, smartContent);
+        tab.content = smartContent;
+        tab.modified = true;
+        this.tabManager.renderTabs();
+        this.setStatus('Content replaced ✓');
+    }
+
+    applyTheme() {
+        let isDark = true;
+
+        if (this.settings.theme === 'system') {
+            // Detect system preference
+            isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        } else {
+            isDark = this.settings.theme === 'dark';
+        }
+
+        if (isDark) {
+            document.body.classList.remove('light-theme');
+        } else {
+            document.body.classList.add('light-theme');
+        }
+
+        // Update Monaco editors
+        this.textEditor?.updateSettings(this.settings);
+    }
+
+    initCommands() {
+        return [
+            { name: 'New Tab', shortcut: 'Cmd+T', action: () => { const id = this.tabManager.createTab(); this.switchTab(id); }},
+            { name: 'Open File', shortcut: 'Cmd+O', action: () => this.openFile() },
+            { name: 'Save File', shortcut: 'Cmd+S', action: () => this.saveFile() },
+            { name: 'Close Tab', shortcut: 'Cmd+W', action: () => this.closeTab(this.tabManager.activeTabId) },
+            { name: 'Settings', shortcut: 'Cmd+,', action: () => this.settingsManager.showModal() },
+            { name: 'Command Palette', shortcut: 'Cmd+P', action: () => this.showCommandPalette() }
+        ];
+    }
+
+    showCommandPalette() {
+        const modal = document.getElementById('commandPalette');
+        const input = document.getElementById('commandInput');
+        modal.classList.remove('hidden');
+        input.value = '';
+        input.focus();
+        this.renderCommands();
+    }
+
+    hideCommandPalette() {
+        document.getElementById('commandPalette').classList.add('hidden');
+    }
+
+    renderCommands(filter = '') {
+        const list = document.getElementById('commandList');
+        list.innerHTML = '';
+
+        const filtered = this.commands.filter(cmd =>
+            cmd.name.toLowerCase().includes(filter.toLowerCase())
+        );
+
+        filtered.forEach((cmd, index) => {
+            const item = document.createElement('div');
+            item.className = `command-item ${index === 0 ? 'selected' : ''}`;
+            item.innerHTML = `
+                <span class="command-name">${cmd.name}</span>
+                <span class="command-shortcut">${cmd.shortcut}</span>
+            `;
+            item.onclick = () => {
+                cmd.action();
+                this.hideCommandPalette();
+            };
+            list.appendChild(item);
+        });
     }
 
     async saveSettings() {
@@ -189,6 +296,7 @@ The right panel will automatically:
             this.openAI.updateCredentials(this.settings.apiKey, this.settings.model);
             this.textEditor.updateSettings(this.settings);
             this.smartPanel.setEnabled(this.settings.smartPanelEnabled);
+            this.applyTheme(); // Apply theme change
             this.setStatus('Settings saved ✓');
         }
     }
@@ -201,9 +309,12 @@ The right panel will automatically:
         };
         document.getElementById('openFileBtn').onclick = () => this.openFile();
         document.getElementById('saveFileBtn').onclick = () => this.saveFile();
+        document.getElementById('commandPaletteBtn').onclick = () => this.showCommandPalette();
         document.getElementById('settingsBtn').onclick = () => this.settingsManager.showModal();
-        document.getElementById('themeToggle').onclick = () => this.toggleTheme();
-        document.getElementById('togglePanel').onclick = () => this.smartPanel.toggle();
+
+        // Panel action buttons
+        document.getElementById('copyBtn').onclick = () => this.copySmartPanelContent();
+        document.getElementById('replaceBtn').onclick = () => this.replaceWithSmartPanelContent();
 
         // Settings modal
         document.getElementById('closeSettingsBtn').onclick = () => this.settingsManager.hideModal();
@@ -211,6 +322,26 @@ The right panel will automatically:
         document.getElementById('settingsModal').onclick = (e) => {
             if (e.target.id === 'settingsModal') {
                 this.settingsManager.hideModal();
+            }
+        };
+
+        // Command palette
+        document.getElementById('commandInput').addEventListener('input', (e) => {
+            this.renderCommands(e.target.value);
+        });
+
+        document.getElementById('commandInput').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                const selected = document.querySelector('.command-item.selected');
+                if (selected) selected.click();
+            } else if (e.key === 'Escape') {
+                this.hideCommandPalette();
+            }
+        });
+
+        document.getElementById('commandPalette').onclick = (e) => {
+            if (e.target.id === 'commandPalette') {
+                this.hideCommandPalette();
             }
         };
 
@@ -234,6 +365,17 @@ The right panel will automatically:
             } else if (cmd && e.key === ',') {
                 e.preventDefault();
                 this.settingsManager.showModal();
+            } else if (cmd && e.key === 'p') {
+                e.preventDefault();
+                this.showCommandPalette();
+            } else if (e.key === 'Escape') {
+                e.preventDefault();
+                this.hideCommandPalette();
+                // Also close settings modal if open
+                const settingsModal = document.getElementById('settingsModal');
+                if (!settingsModal.classList.contains('hidden')) {
+                    this.settingsManager.hideModal();
+                }
             }
         });
     }
