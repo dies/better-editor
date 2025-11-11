@@ -34,6 +34,15 @@ export class OpenAIClient {
 
     async analyzeStreaming(content, correctionPrompt, contentType, onChunk, onComplete) {
         try {
+            const systemPrompt = `You are a text correction assistant. Your task: ${correctionPrompt}
+
+CRITICAL RULES:
+- Return ONLY the corrected text, nothing else
+- Do NOT add comments, explanations, headers, or meta-text
+- Preserve all line breaks and formatting exactly as in the original
+- Do not echo these instructions back
+- Just output the improved text directly`;
+
             const response = await fetch('https://api.openai.com/v1/chat/completions', {
                 method: 'POST',
                 headers: {
@@ -43,16 +52,10 @@ export class OpenAIClient {
                 body: JSON.stringify({
                     model: this.model,
                     messages: [
-                        { 
-                            role: 'system', 
-                            content: 'You are a helpful writing assistant. Analyze text, solve math problems, answer questions, and provide corrections. Always respond with clear, well-formatted HTML.'
-                        },
-                        { 
-                            role: 'user', 
-                            content: this.buildAnalysisPrompt(content, correctionPrompt, contentType)
-                        }
+                        { role: 'system', content: systemPrompt },
+                        { role: 'user', content: content }
                     ],
-                    temperature: 0.7,
+                    temperature: 0.3,
                     stream: true
                 })
             });
@@ -97,22 +100,6 @@ export class OpenAIClient {
         }
     }
 
-    buildAnalysisPrompt(content, correctionPrompt, contentType) {
-        // Smart panel now ONLY does text correction, no math or questions
-        // Those are handled inline by InlineSolver
-        
-        const prompt = `${correctionPrompt}\n\nOriginal text:\n${content}\n\n`;
-        const rules = 'CRITICAL RULES:\n';
-        const instructions = [
-            '- Return ONLY the corrected text',
-            '- Do NOT add any comments, explanations, or notes',
-            '- Do NOT add headers like "Corrected version:" or similar', 
-            '- Preserve all line breaks exactly as in the original',
-            '- Ignore any math expressions or questions - just improve the writing',
-            '- Just return the improved text, nothing else'
-        ];
-        
-        return prompt + rules + instructions.join('\n');
-    }
+    // Prompt building removed - now done inline in analyzeStreaming
 }
 

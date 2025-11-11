@@ -1,18 +1,16 @@
 <svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
-  <!-- Clean, minimal Google-style design -->
-  <!-- Background: Solid color, rounded square -->
-  <rect width="512" height="512" rx="120" fill="#1967d2"/>
+  <!-- Minimalist black and white design -->
   
-  <!-- Simple notepad icon -->
-  <!-- Paper/Note -->
-  <rect x="140" y="100" width="232" height="312" rx="16" fill="white"/>
+  <!-- Background: Pure black with rounded corners -->
+  <rect width="512" height="512" rx="115" fill="#000000"/>
   
-  <!-- Lines on the paper -->
-  <line x1="170" y1="160" x2="342" y2="160" stroke="#1967d2" stroke-width="8" stroke-linecap="round" opacity="0.3"/>
-  <line x1="170" y1="200" x2="342" y2="200" stroke="#1967d2" stroke-width="8" stroke-linecap="round" opacity="0.3"/>
-  <line x1="170" y1="240" x2="300" y2="240" stroke="#1967d2" stroke-width="8" stroke-linecap="round" opacity="0.3"/>
-  
-  <!-- AI accent: Small dot/indicator -->
-  <circle cx="380" cy="140" r="32" fill="#ea4335"/>
-  <path d="M 380 128 L 380 144 M 380 152 L 380 152" stroke="white" stroke-width="6" stroke-linecap="round"/>
+  <!-- Main icon: Stylized "N" for NotAIs -->
+  <g transform="translate(256, 256)">
+    <!-- Bold geometric N shape -->
+    <path d="M -80,-120 L -80,120 L -40,120 L -40,-40 L 40,120 L 80,120 L 80,-120 L 40,-120 L 40,40 L -40,-120 Z" 
+          fill="#ffffff"/>
+    
+    <!-- Subtle AI indicator dot -->
+    <circle cx="100" cy="-100" r="16" fill="#ffffff"/>
+  </g>
 </svg>

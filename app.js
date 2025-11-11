@@ -185,11 +185,27 @@ class NotAIs {
 
     setAIStatus(msg) {
         const statusEl = document.getElementById('aiStatus');
-        if (!msg || msg === 'Ready') {
-            statusEl.textContent = '';
-            statusEl.classList.remove('active');
+        
+        // Remove all state classes
+        statusEl.classList.remove('idle', 'waiting', 'active', 'streaming', 'error');
+        
+        if (!msg || msg === 'Idle') {
+            statusEl.textContent = 'AI: Idle';
+            statusEl.classList.add('idle');
+        } else if (msg.includes('Waiting for typing')) {
+            statusEl.textContent = 'AI: Waiting...';
+            statusEl.classList.add('waiting');
+        } else if (msg.includes('Sending') || msg.includes('Waiting for AI')) {
+            statusEl.textContent = 'AI: Requesting...';
+            statusEl.classList.add('active');
+        } else if (msg.includes('Streaming')) {
+            statusEl.textContent = 'AI: Streaming';
+            statusEl.classList.add('streaming');
+        } else if (msg.includes('Error')) {
+            statusEl.textContent = 'AI: ' + msg;
+            statusEl.classList.add('error');
         } else {
-            statusEl.textContent = `🤖 ${msg}`;
+            statusEl.textContent = 'AI: ' + msg;
             statusEl.classList.add('active');
         }
     }

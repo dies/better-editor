@@ -25,13 +25,15 @@ export class SmartPanel {
         
         if (!content.trim()) {
             this.showMessage('Start typing to see smart suggestions...', 'empty');
+            this.setStatus('Idle');
             return;
         }
 
         if (content === this.lastContent) return;
         this.lastContent = content;
 
-        this.showMessage('Analyzing...', 'loading');
+        // Indicate we're waiting for user to stop typing
+        this.setStatus('Waiting for typing to stop...');
 
         this.updateTimeout = setTimeout(async () => {
             await this.update(content, correctionPrompt);
@@ -44,16 +46,16 @@ export class SmartPanel {
             if (this.isMarkdown(content)) {
                 this.setStatus('Rendering markdown...');
                 await this.renderMarkdown(content);
-                this.setStatus('Ready');
+                this.setStatus('Idle');
             } else {
-                this.setStatus('AI analyzing...');
+                this.setStatus('Sending request to AI...');
                 await this.renderAnalysis(content, correctionPrompt);
-                this.setStatus('Ready');
+                this.setStatus('Idle');
             }
         } catch (error) {
             console.error('Smart panel error:', error);
             this.showMessage(`Error: ${error.message}`, 'error');
-            this.setStatus('Error');
+            this.setStatus('Error: ' + error.message);
         }
     }
 
@@ -85,28 +87,35 @@ export class SmartPanel {
     async renderAnalysis(content, correctionPrompt) {
         if (!this.openAIClient.apiKey) {
             this.showMessage('Set your OpenAI API key in settings to enable smart features', 'info');
-            this.setStatus('No API key');
+            this.setStatus('No API key - set in settings');
             return;
         }
 
         this.container.innerHTML = '<pre class="smart-analysis streaming"></pre>';
         const analysisPre = this.container.querySelector('.smart-analysis');
+        
+        let firstChunk = true;
 
         try {
+            this.setStatus('Waiting for AI response...');
+            
             await this.openAIClient.analyzeStreaming(
                 content,
                 correctionPrompt,
                 'text',
                 // On chunk
                 (partialContent) => {
+                    if (firstChunk) {
+                        this.setStatus('Streaming response...');
+                        firstChunk = false;
+                    }
                     analysisPre.textContent = partialContent;
-                    this.setStatus('AI streaming...');
                 },
                 // On complete
                 (fullContent) => {
                     analysisPre.textContent = fullContent;
                     analysisPre.classList.remove('streaming');
-                    this.setStatus('Ready');
+                    this.setStatus('Idle');
                 }
             );
         } catch (error) {

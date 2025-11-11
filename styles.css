@@ -408,14 +408,13 @@ body {
 }
 
 .ai-status {
-    color: var(--accent);
-    font-weight: 500;
-    opacity: 0;
-    transition: opacity 0.3s;
-}
-
-.ai-status.active {
-    opacity: 1;
+    color: var(--text-secondary);
+    font-weight: 400;
+    font-size: 11px;
+    transition: all 0.3s;
+    display: flex;
+    align-items: center;
+    gap: 6px;
 }
 
 .ai-status::before {
@@ -423,15 +422,37 @@ body {
     display: inline-block;
     width: 6px;
     height: 6px;
-    background: var(--accent);
+    background: var(--text-secondary);
     border-radius: 50%;
-    margin-right: 6px;
+    transition: all 0.3s;
+}
+
+/* Different states */
+.ai-status.idle::before {
+    background: var(--text-secondary);
+}
+
+.ai-status.waiting::before {
+    background: var(--warning);
+}
+
+.ai-status.active::before {
+    background: var(--accent);
     animation: pulse 1.5s ease-in-out infinite;
+}
+
+.ai-status.streaming::before {
+    background: var(--success);
+    animation: pulse 0.8s ease-in-out infinite;
+}
+
+.ai-status.error::before {
+    background: var(--error);
 }
 
 @keyframes pulse {
     0%, 100% { opacity: 1; transform: scale(1); }
-    50% { opacity: 0.5; transform: scale(1.2); }
+    50% { opacity: 0.5; transform: scale(1.3); }
 }
 
 /* Modal */

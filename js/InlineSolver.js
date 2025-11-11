@@ -82,7 +82,7 @@ export class InlineSolver {
         const lineContent = editor.getModel().getLineContent(lineNumber);
         const lineLength = lineContent.length;
 
-        // Insert answer after the = sign
+        // Insert answer after the = sign (no space)
         editor.executeEdits('inline-solver', [{
             range: {
                 startLineNumber: lineNumber,
@@ -90,7 +90,7 @@ export class InlineSolver {
                 endLineNumber: lineNumber,
                 endColumn: lineLength + 1
             },
-            text: ` ${answer}`
+            text: answer
         }]);
     }
 }
