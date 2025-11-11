@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#1e1e1e">
+    <title>AI Text Editor</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='0.9em' font-size='90'>📝</text></svg>">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div id="app">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-left">
+                <div class="logo">📝 AI Editor</div>
+                <div class="tabs" id="tabs"></div>
+            </div>
+            <div class="header-right">
+                <button id="newTabBtn" class="icon-btn" title="New Tab (Cmd+T)">➕</button>
+                <button id="openFileBtn" class="icon-btn" title="Open File (Cmd+O)">📁</button>
+                <button id="saveFileBtn" class="icon-btn" title="Save File (Cmd+S)">💾</button>
+                <button id="commandPaletteBtn" class="icon-btn" title="Command Palette (Cmd+P)">⚡</button>
+                <button id="aiChatBtn" class="icon-btn" title="AI Chat (Cmd+K)">🤖</button>
+                <button id="settingsBtn" class="icon-btn" title="Settings">⚙️</button>
+                <button id="themeToggle" class="icon-btn" title="Toggle Theme">🌙</button>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Monaco Editor Container -->
+            <div id="editorContainer" class="editor-container"></div>
+
+            <!-- AI Chat Sidebar -->
+            <div id="aiChatSidebar" class="ai-chat-sidebar hidden">
+                <div class="chat-header">
+                    <h3>AI Assistant</h3>
+                    <button id="closeChatBtn" class="close-btn">✕</button>
+                </div>
+                <div id="chatMessages" class="chat-messages"></div>
+                <div class="chat-input-container">
+                    <textarea id="chatInput" placeholder="Ask AI anything... (Shift+Enter to send)" rows="3"></textarea>
+                    <button id="sendChatBtn" class="send-btn">Send</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Settings Modal -->
+        <div id="settingsModal" class="modal hidden">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>Settings</h2>
+                    <button id="closeSettingsBtn" class="close-btn">✕</button>
+                </div>
+                <div class="modal-body">
+                    <div class="setting-group">
+                        <label for="apiKeyInput">OpenAI API Key</label>
+                        <input type="password" id="apiKeyInput" placeholder="sk-...">
+                        <small>Your API key is stored locally and never sent anywhere except OpenAI.</small>
+                    </div>
+                    <div class="setting-group">
+                        <label for="modelSelect">Model</label>
+                        <select id="modelSelect">
+                            <option value="gpt-4o">GPT-4o (Most Capable)</option>
+                            <option value="gpt-4o-mini" selected>GPT-4o Mini (Fast & Balanced)</option>
+                            <option value="gpt-4-turbo">GPT-4 Turbo (Very Capable)</option>
+                            <option value="gpt-3.5-turbo">GPT-3.5 Turbo (Fastest)</option>
+                        </select>
+                    </div>
+                    <div class="setting-group">
+                        <label>
+                            <input type="checkbox" id="autoCompleteToggle" checked>
+                            Enable AI Autocomplete
+                        </label>
+                    </div>
+                    <div class="setting-group">
+                        <label for="autoCompleteDelay">Autocomplete Delay (ms)</label>
+                        <input type="number" id="autoCompleteDelay" value="1000" min="500" max="5000" step="100">
+                    </div>
+                    <div class="setting-group">
+                        <label for="fontSizeInput">Font Size</label>
+                        <input type="number" id="fontSizeInput" value="14" min="10" max="24">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button id="saveSettingsBtn" class="primary-btn">Save Settings</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Command Palette -->
+        <div id="commandPalette" class="modal hidden">
+            <div class="command-palette-content">
+                <input type="text" id="commandInput" placeholder="Type a command...">
+                <div id="commandList" class="command-list"></div>
+            </div>
+        </div>
+
+        <!-- Autocomplete Suggestions -->
+        <div id="autocompleteSuggestions" class="autocomplete-suggestions hidden"></div>
+
+        <!-- Status Bar -->
+        <div class="status-bar">
+            <div class="status-left">
+                <span id="fileStatus">Ready</span>
+            </div>
+            <div class="status-right">
+                <span id="cursorPosition">Ln 1, Col 1</span>
+                <span id="language">plaintext</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Monaco Editor -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs/loader.min.js"></script>
+    
+    <!-- App Scripts -->
+    <script type="module" src="app.js"></script>
+</body>
+</html>
+
