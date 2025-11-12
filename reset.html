@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Reset NotAIs</title>
+    <style>
+        body {
+            font-family: monospace;
+            padding: 40px;
+            background: #1e1e1e;
+            color: #ccc;
+            text-align: center;
+        }
+        .success { color: #4ec9b0; font-size: 24px; margin: 20px; }
+        button {
+            padding: 15px 30px;
+            font-size: 18px;
+            margin: 10px;
+            cursor: pointer;
+            background: #007acc;
+            color: white;
+            border: none;
+            border-radius: 6px;
+        }
+        button:hover { background: #0098ff; }
+    </style>
+</head>
+<body>
+    <h1>🔄 Reset NotAIs</h1>
+    <div id="status">Resetting...</div>
+    
+    <script>
+        async function reset() {
+            const status = document.getElementById('status');
+            const steps = [];
+            
+            // 1. Unregister service workers
+            if ('serviceWorker' in navigator) {
+                const registrations = await navigator.serviceWorker.getRegistrations();
+                for (const registration of registrations) {
+                    await registration.unregister();
+                    steps.push('✅ Unregistered service worker');
+                }
+            }
+            
+            // 2. Clear all caches
+            if ('caches' in window) {
+                const cacheNames = await caches.keys();
+                for (const cacheName of cacheNames) {
+                    await caches.delete(cacheName);
+                    steps.push(`✅ Deleted cache: ${cacheName}`);
+                }
+            }
+            
+            // 3. Clear localStorage (optional - commented out)
+            // localStorage.clear();
+            // steps.push('✅ Cleared localStorage');
+            
+            status.innerHTML = `
+                <div class="success">✅ Reset Complete!</div>
+                ${steps.map(s => `<div>${s}</div>`).join('')}
+                <p style="margin-top: 30px;">
+                    <button onclick="window.location.href='/'">Go to App</button>
+                </p>
+            `;
+        }
+        
+        reset();
+    </script>
+</body>
+</html>
+

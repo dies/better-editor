@@ -151,38 +151,28 @@
         </div>
     </div>
 
-    <!-- Dependencies loaded before app -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs/loader.min.js"></script>
+    <!-- Load marked BEFORE Monaco to avoid RequireJS interference -->
     <script src="lib/marked.umd.js" 
             onerror="console.error('❌ SCRIPT LOAD ERROR: lib/marked.umd.js failed to load')"
             onload="console.log('✅ Script tag loaded: lib/marked.umd.js')"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs/loader.min.js"></script>
     
-    <!-- Verify marked loaded -->
+    <!-- Verify marked loaded (BEFORE Monaco loads) -->
     <script>
-        console.log('🔍 Checking marked.js after script tag...');
+        console.log('🔍 Checking marked.js (BEFORE Monaco)...');
         console.log('  typeof marked:', typeof marked);
         console.log('  typeof window.marked:', typeof window.marked);
-        console.log('  All window keys:', Object.keys(window).slice(0, 20));
+        console.log('  typeof define:', typeof define);
+        console.log('  typeof define.amd:', typeof define?.amd);
         
-        if (typeof marked === 'undefined' && typeof window.marked === 'undefined') {
-            console.error('❌❌❌ MARKED NOT IN GLOBAL SCOPE! ❌❌❌');
-            console.error('Try loading from CDN instead...');
-            
-            // Load from CDN as fallback
-            const script = document.createElement('script');
-            script.src = 'https://cdn.jsdelivr.net/npm/marked/marked.min.js';
-            script.onload = () => {
-                console.log('✅ Loaded from CDN, typeof marked:', typeof marked);
-                window.markedLoaded = true;
-            };
-            script.onerror = () => console.error('❌ CDN also failed!');
-            document.head.appendChild(script);
-        } else {
-            console.log('✅✅✅ MARKED IS LOADED! ✅✅✅');
-            const markedLib = window.marked || marked;
-            console.log('  marked.parse:', typeof markedLib.parse);
-            window.marked = markedLib;
+        if (typeof marked !== 'undefined') {
+            console.log('✅✅✅ MARKED LOADED SUCCESSFULLY! ✅✅✅');
+            window.marked = marked;
             window.markedLoaded = true;
+            console.log('  marked.parse:', typeof marked.parse);
+        } else {
+            console.error('❌❌❌ MARKED FAILED TO LOAD! ❌❌❌');
+            window.markedLoaded = false;
         }
     </script>
     

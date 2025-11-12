@@ -25,15 +25,25 @@ class NotAIs {
     async init() {
         console.log('🚀 Starting NotAIs...');
         
-        // Register service worker
-        if ('serviceWorker' in navigator) {
+        // Register service worker ONLY in production
+        const isDevelopment = window.location.hostname === 'localhost' || 
+                              window.location.hostname === '127.0.0.1';
+        
+        if ('serviceWorker' in navigator && !isDevelopment) {
             try {
                 const registration = await navigator.serviceWorker.register('/service-worker.js');
-                // Force update to get latest version
                 registration.update();
                 console.log('✅ Service Worker registered');
             } catch (error) {
                 console.error('Service Worker error:', error);
+            }
+        } else if (isDevelopment) {
+            console.log('🔧 Development mode - Service Worker DISABLED');
+            // Unregister any existing service workers
+            const registrations = await navigator.serviceWorker.getRegistrations();
+            for (const registration of registrations) {
+                await registration.unregister();
+                console.log('🗑️ Unregistered old service worker');
             }
         }
 
