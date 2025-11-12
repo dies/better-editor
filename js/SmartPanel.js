@@ -1,6 +1,4 @@
 // Smart Panel - AI-powered analysis and preview
-import { MarkdownParser } from './MarkdownParser.js';
-
 export class SmartPanel {
     constructor(openAIClient) {
         this.openAIClient = openAIClient;
@@ -48,6 +46,20 @@ export class SmartPanel {
                 await this.renderMarkdown(content);
                 this.setStatus('Idle');
             } else {
+                // Check if content is too short or just math/questions
+                if (content.trim().length < 10) {
+                    this.showMessage('Write more text to see AI suggestions...', 'empty');
+                    this.setStatus('Idle');
+                    return;
+                }
+                
+                // Don't process if it's just a single line with math
+                if (content.split('\n').length === 1 && /=\s*$/.test(content)) {
+                    this.showMessage('Inline solver active. AI corrections for longer text only.', 'info');
+                    this.setStatus('Idle');
+                    return;
+                }
+                
                 this.setStatus('Sending request to AI...');
                 await this.renderAnalysis(content, correctionPrompt);
                 this.setStatus('Idle');
@@ -60,27 +72,53 @@ export class SmartPanel {
     }
 
     isMarkdown(content) {
-        // Detect common markdown patterns
+        // Only treat as markdown if it has significant markdown syntax
+        // This prevents plain text from being mistakenly rendered as markdown
         const mdPatterns = [
-            /^#{1,6}\s/m,      // Headers
-            /\*\*.*\*\*/,      // Bold
-            /\*.*\*/,          // Italic
-            /\[.*\]\(.*\)/,    // Links
-            /^[-*+]\s/m,       // Lists
-            /^>\s/m,           // Blockquotes
-            /```/              // Code blocks
+            /^#{1,6}\s.+$/m,              // Headers with content
+            /\*\*.+\*\*/,                 // Bold text
+            /\[.+\]\(.+\)/,               // Links
+            /^[-*+]\s.+$/m,               // Lists
+            /^>\s.+$/m,                   // Blockquotes
+            /```[\s\S]+```/,              // Code blocks
+            /^\d+\.\s.+$/m                // Numbered lists
         ];
         
-        return mdPatterns.some(pattern => pattern.test(content));
+        // Need at least 2 markdown patterns to consider it markdown
+        const matches = mdPatterns.filter(pattern => pattern.test(content)).length;
+        return matches >= 2;
     }
 
     async renderMarkdown(content) {
         try {
-            const html = MarkdownParser.parse(content);
-            this.container.innerHTML = `<div class="markdown-content">${html}</div>`;
+            // Configure marked for better output
+            if (typeof marked !== 'undefined') {
+                marked.setOptions({
+                    breaks: true,        // Convert \n to <br>
+                    gfm: true,          // GitHub Flavored Markdown
+                    headerIds: false,
+                    mangle: false
+                });
+
+                const html = marked.parse(content);
+                this.container.innerHTML = `<div class="markdown-content">${html}</div>`;
+            } else {
+                // Marked not loaded - fallback to plain text
+                console.warn('Marked.js not available, showing plain text');
+                const pre = document.createElement('pre');
+                pre.className = 'smart-analysis';
+                pre.textContent = content;
+                this.container.innerHTML = '';
+                this.container.appendChild(pre);
+            }
         } catch (error) {
             console.error('Markdown rendering error:', error);
-            this.showMessage(`Markdown error: ${error.message}`, 'error');
+            // Fallback to plain text on error
+            const pre = document.createElement('pre');
+            pre.className = 'smart-analysis';
+            pre.textContent = content;
+            this.container.innerHTML = '';
+            this.container.appendChild(pre);
         }
     }
 

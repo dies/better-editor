@@ -1,30 +1,44 @@
 // NotAIs - AI-Powered Note Editor
 import { OpenAIClient } from './js/OpenAIClient.js';
-import { SmartPanel } from './js/SmartPanel.js';
 import { TextEditor } from './js/TextEditor.js';
 import { TabManager } from './js/TabManager.js';
 import { SettingsManager } from './js/SettingsManager.js';
 import { FileHandler } from './js/FileHandler.js';
 import { InlineSolver } from './js/InlineSolver.js';
+import { IncrementalCorrector } from './js/IncrementalCorrector.js';
 
 class NotAIs {
     constructor() {
-        this.init();
+        this.init().catch(error => {
+            console.error('❌ Fatal error during initialization:', error);
+            document.body.innerHTML = `
+                <div style="padding: 40px; color: #f48771; font-family: monospace;">
+                    <h1>Failed to load NotAIs</h1>
+                    <p>Error: ${error.message}</p>
+                    <p>Check browser console for details.</p>
+                    <button onclick="location.reload()" style="padding: 10px 20px; margin-top: 20px;">Reload</button>
+                </div>
+            `;
+        });
     }
 
     async init() {
+        console.log('🚀 Starting NotAIs...');
+        
         // Register service worker
         if ('serviceWorker' in navigator) {
             try {
                 const registration = await navigator.serviceWorker.register('/service-worker.js');
                 // Force update to get latest version
                 registration.update();
+                console.log('✅ Service Worker registered');
             } catch (error) {
                 console.error('Service Worker error:', error);
             }
         }
 
         // Load Monaco
+        console.log('Loading Monaco...');
         await this.loadMonaco();
 
         // Initialize settings FIRST to get theme
@@ -38,13 +52,21 @@ class NotAIs {
         // Initialize managers
         this.tabManager = new TabManager();
         this.textEditor = new TextEditor(this.settings);
-        this.smartPanel = new SmartPanel(this.openAI);
-        this.smartPanel.setEnabled(this.settings.smartPanelEnabled);
         this.inlineSolver = new InlineSolver(this.openAI);
+        this.incrementalCorrector = new IncrementalCorrector(this.openAI);
         
-        // Connect smart panel status to UI
-        this.smartPanel.onStatusChange = (message) => {
+        // Use IncrementalCorrector instead of SmartPanel for better performance
+        this.incrementalCorrector.onUpdate = (correctedText, isStreaming) => {
+            this.updateSmartPanel(correctedText, isStreaming);
+        };
+        
+        this.incrementalCorrector.onStatusChange = (message) => {
             this.setAIStatus(message);
+        };
+        
+        // Connect inline solver errors to status bar
+        this.inlineSolver.onStatusMessage = (message) => {
+            this.setStatus(message);
         };
 
         // Initialize commands
@@ -58,8 +80,9 @@ class NotAIs {
         
         // Listen for system theme changes
         if (window.matchMedia) {
-            window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+            window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
                 if (this.settings.theme === 'system') {
+                    console.log('System theme changed to:', e.matches ? 'dark' : 'light');
                     this.applyTheme();
                 }
             });
@@ -77,8 +100,21 @@ class NotAIs {
             require.config({ 
                 paths: { vs: 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs' } 
             });
-            require(['vs/editor/editor.main'], resolve);
+            require(['vs/editor/editor.main'], () => {
+                console.log('✅ Monaco loaded');
+                // Don't wait for marked - it's optional and loads async
+                resolve();
+            });
         });
+        
+        // Check for marked.js separately (don't block)
+        setTimeout(() => {
+            if (typeof marked !== 'undefined') {
+                console.log('✅ Marked.js loaded');
+            } else {
+                console.warn('⚠️ Marked.js not loaded - markdown preview disabled');
+            }
+        }, 1000);
     }
 
     switchTab(tabId) {
@@ -95,13 +131,13 @@ class NotAIs {
         const editor = this.textEditor.createEditor(tab);
 
         // Editor listeners
-        let lastLineCount = editor.getModel().getLineCount();
-        
         editor.onDidChangeModelContent((e) => {
             const content = editor.getValue();
             this.tabManager.updateContent(tabId, content);
             this.tabManager.renderTabs();
             this.updateStatus();
+            
+            const cursorLine = editor.getPosition().lineNumber - 1; // 0-indexed
             
             // Check for inline solving on the changed line
             if (e.changes.length > 0) {
@@ -115,8 +151,14 @@ class NotAIs {
                 }
             }
             
-            // Update smart panel (but exclude math/questions from going there)
-            this.smartPanel.scheduleUpdate(content, this.settings.correctionPrompt);
+            // Incremental correction for right panel
+            if (this.settings.smartPanelEnabled) {
+                this.incrementalCorrector.scheduleCorrection(
+                    content, 
+                    cursorLine, 
+                    this.settings.correctionPrompt
+                );
+            }
         });
 
         editor.onDidChangeCursorPosition(() => {
@@ -126,10 +168,24 @@ class NotAIs {
         this.tabManager.renderTabs();
         this.updateStatus();
 
-        // Initial smart panel update
-        if (tab.content) {
-            this.smartPanel.scheduleUpdate(tab.content, this.settings.correctionPrompt);
+        // Initial correction for right panel
+        if (tab.content && this.settings.smartPanelEnabled) {
+            const cursorLine = editor.getPosition().lineNumber - 1;
+            this.incrementalCorrector.scheduleCorrection(
+                tab.content, 
+                cursorLine, 
+                this.settings.correctionPrompt
+            );
         }
+    }
+
+    updateSmartPanel(correctedText, isStreaming = false) {
+        const container = document.getElementById('smartPanelContent');
+        const pre = document.createElement('pre');
+        pre.className = 'smart-analysis' + (isStreaming ? ' streaming' : '');
+        pre.textContent = correctedText;
+        container.innerHTML = '';
+        container.appendChild(pre);
     }
 
     closeTab(tabId) {
@@ -211,7 +267,10 @@ class NotAIs {
     }
 
     copySmartPanelContent() {
-        const content = document.getElementById('smartPanelContent').textContent;
+        const container = document.getElementById('smartPanelContent');
+        const pre = container.querySelector('.smart-analysis');
+        const content = pre ? pre.textContent : container.textContent;
+        
         navigator.clipboard.writeText(content).then(() => {
             this.setStatus('Copied to clipboard ✓');
         }).catch(err => {
@@ -224,10 +283,12 @@ class NotAIs {
         const tab = this.tabManager.getActiveTab();
         if (!tab) return;
 
-        const smartContent = document.getElementById('smartPanelContent').textContent;
+        const container = document.getElementById('smartPanelContent');
+        const pre = container.querySelector('.smart-analysis');
+        const smartContent = pre ? pre.textContent : container.textContent;
         
         // Get only the actual content, not the placeholder text
-        if (smartContent.includes('Start typing') || smartContent.includes('Set your OpenAI')) {
+        if (!smartContent || smartContent.includes('Start typing') || smartContent.includes('No API key')) {
             return;
         }
 
@@ -248,9 +309,12 @@ class NotAIs {
             isDark = this.settings.theme === 'dark';
         }
 
+        // Apply to both html and body for consistency
         if (isDark) {
+            document.documentElement.classList.remove('light-theme');
             document.body.classList.remove('light-theme');
         } else {
+            document.documentElement.classList.add('light-theme');
             document.body.classList.add('light-theme');
         }
 
@@ -311,9 +375,22 @@ class NotAIs {
             this.settings = this.settingsManager.settings;
             this.openAI.updateCredentials(this.settings.apiKey, this.settings.model);
             this.textEditor.updateSettings(this.settings);
-            this.smartPanel.setEnabled(this.settings.smartPanelEnabled);
             this.applyTheme(); // Apply theme change
             this.setStatus('Settings saved ✓');
+            
+            // Retrigger correction with new settings
+            const tab = this.tabManager.getActiveTab();
+            if (tab && tab.content && this.settings.smartPanelEnabled) {
+                const editor = this.textEditor.getEditor(tab.id);
+                if (editor) {
+                    const cursorLine = editor.getPosition().lineNumber - 1;
+                    this.incrementalCorrector.scheduleCorrection(
+                        tab.content,
+                        cursorLine,
+                        this.settings.correctionPrompt
+                    );
+                }
+            }
         }
     }
 

@@ -18,6 +18,7 @@
     --error: #f48771;
 }
 
+html.light-theme,
 body.light-theme {
     --bg-primary: #ffffff;
     --bg-secondary: #f3f3f3;
@@ -639,6 +640,17 @@ body {
 .command-shortcut {
     color: var(--text-secondary);
     font-size: 12px;
+}
+
+/* Monaco Error Decorations */
+.inline-error {
+    border-bottom: 2px wavy var(--error);
+}
+
+.error-glyph {
+    background: var(--error);
+    width: 4px !important;
+    margin-left: 3px;
 }
 
 /* Scrollbar */

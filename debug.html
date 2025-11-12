@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>NotAIs Debug</title>
+    <style>
+        body { font-family: monospace; padding: 20px; background: #1e1e1e; color: #ccc; }
+        .success { color: #4ec9b0; }
+        .error { color: #f48771; }
+        pre { background: #2d2d30; padding: 10px; border-radius: 4px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>NotAIs - Debug Page</h1>
+    <div id="output"></div>
+    
+    <script type="module">
+        const output = document.getElementById('output');
+        
+        function log(msg, type = 'info') {
+            const div = document.createElement('div');
+            div.className = type;
+            div.textContent = msg;
+            output.appendChild(div);
+        }
+        
+        // Test 1: Check if scripts load
+        log('Testing NotAIs modules...', 'info');
+        
+        try {
+            log('✅ Module imports work', 'success');
+            
+            // Test imports
+            const tests = [
+                { name: 'OpenAIClient', path: './js/OpenAIClient.js' },
+                { name: 'TextEditor', path: './js/TextEditor.js' },
+                { name: 'TabManager', path: './js/TabManager.js' },
+                { name: 'SettingsManager', path: './js/SettingsManager.js' },
+                { name: 'FileHandler', path: './js/FileHandler.js' },
+                { name: 'InlineSolver', path: './js/InlineSolver.js' },
+                { name: 'IncrementalCorrector', path: './js/IncrementalCorrector.js' }
+            ];
+            
+            for (const test of tests) {
+                try {
+                    await import(test.path);
+                    log(`✅ ${test.name} loaded`, 'success');
+                } catch (err) {
+                    log(`❌ ${test.name} failed: ${err.message}`, 'error');
+                    console.error(err);
+                }
+            }
+            
+            // Test Monaco
+            if (typeof require !== 'undefined') {
+                log('✅ Monaco loader available', 'success');
+            } else {
+                log('❌ Monaco loader not found', 'error');
+            }
+            
+            // Test Marked
+            setTimeout(() => {
+                if (typeof marked !== 'undefined') {
+                    log('✅ Marked.js loaded', 'success');
+                } else {
+                    log('❌ Marked.js not loaded', 'error');
+                }
+            }, 1000);
+            
+        } catch (err) {
+            log(`❌ Fatal error: ${err.message}`, 'error');
+            const pre = document.createElement('pre');
+            pre.textContent = err.stack;
+            output.appendChild(pre);
+        }
+    </script>
+    
+    <!-- Load dependencies -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs/loader.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked@11.0.0/marked.min.js"></script>
+</body>
+</html>
+

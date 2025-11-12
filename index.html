@@ -8,6 +8,26 @@
     <link rel="manifest" href="manifest.json">
     <link rel="icon" href="logo.svg" type="image/svg+xml">
     <link rel="stylesheet" href="styles.css">
+    
+    <!-- Apply theme IMMEDIATELY before body renders to prevent flash -->
+    <script>
+        (function() {
+            const stored = localStorage.getItem('settings');
+            const settings = stored ? JSON.parse(stored) : { theme: 'system' };
+            const theme = settings.theme || 'system';
+            
+            let isDark = true;
+            if (theme === 'system') {
+                isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+            } else {
+                isDark = theme === 'dark';
+            }
+            
+            if (!isDark) {
+                document.documentElement.classList.add('light-theme');
+            }
+        })();
+    </script>
 </head>
 <body>
     <div id="app">
@@ -131,8 +151,10 @@
         </div>
     </div>
 
-    <!-- Monaco Editor -->
+    <!-- Dependencies loaded before app -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs/loader.min.js"></script>
+    <script src="https://unpkg.com/marked@11.1.1/marked.min.js"></script>
+    
     <!-- App -->
     <script type="module" src="app.js"></script>
 </body>
