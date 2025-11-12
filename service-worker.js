@@ -6,7 +6,8 @@ const urlsToCache = [
   '/styles.css',
   '/app.js',
   '/manifest.json',
-  '/logo.svg'
+  '/logo.svg',
+  '/lib/marked.umd.js'
 ];
 
 // Check if running in development

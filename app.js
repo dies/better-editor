@@ -54,6 +54,7 @@ class NotAIs {
         this.textEditor = new TextEditor(this.settings);
         this.inlineSolver = new InlineSolver(this.openAI);
         this.incrementalCorrector = new IncrementalCorrector(this.openAI);
+        this.incrementalCorrector.setEnabled(this.settings.smartPanelEnabled);
         
         // Use IncrementalCorrector instead of SmartPanel for better performance
         this.incrementalCorrector.onUpdate = (correctedText, isStreaming) => {
@@ -107,14 +108,15 @@ class NotAIs {
             });
         });
         
-        // Check for marked.js separately (don't block)
+        // Check for marked separately (don't block)
         setTimeout(() => {
-            if (typeof marked !== 'undefined') {
-                console.log('✅ Marked.js loaded');
+            if (typeof marked !== 'undefined' && typeof marked.parse === 'function') {
+                console.log('✅ marked.parse() available from lib/marked.umd.js');
             } else {
-                console.warn('⚠️ Marked.js not loaded - markdown preview disabled');
+                console.error('❌ marked not loaded from lib/marked.umd.js');
+                console.log('window.marked:', window.marked);
             }
-        }, 1000);
+        }, 500);
     }
 
     switchTab(tabId) {
@@ -152,12 +154,22 @@ class NotAIs {
             }
             
             // Incremental correction for right panel
+            console.log('═══════════════════════════════════════');
+            console.log('📝 EDITOR CHANGED');
+            console.log('Content length:', content.length);
+            console.log('Smart panel enabled:', this.settings.smartPanelEnabled);
+            console.log('Correction prompt:', this.settings.correctionPrompt);
+            console.log('═══════════════════════════════════════');
+            
             if (this.settings.smartPanelEnabled) {
+                console.log('🔄 Calling scheduleCorrection...');
                 this.incrementalCorrector.scheduleCorrection(
                     content, 
                     cursorLine, 
                     this.settings.correctionPrompt
                 );
+            } else {
+                console.log('❌ Smart panel is DISABLED in settings!');
             }
         });
 

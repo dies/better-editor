@@ -1,61 +1,53 @@
-// Inline Math and Question Solver with Real Tools
+// Inline Math and Question Solver with Real Tools + AI
 import { MathTool } from './tools/MathTool.js';
 import { CurrencyTool } from './tools/CurrencyTool.js';
+import { AICalculator } from './tools/AICalculator.js';
 
 export class InlineSolver {
     constructor(openAIClient) {
         this.openAIClient = openAIClient;
+        this.aiCalculator = new AICalculator(openAIClient);
         this.processingLines = new Set();
-        this.decorations = new Map(); // Track decorations per editor
+        this.decorations = new Map();
         this.onStatusMessage = null;
+        this.calculationCache = new Map(); // Cache line -> expression for recalc
     }
 
     async processLine(editor, lineNumber, lineContent) {
-        // Check if line has = at the end (with possible whitespace)
-        const hasEquals = /=\s*$/.test(lineContent);
-        if (!hasEquals) {
-            console.log('InlineSolver: No = at end');
+        // Simple approach: if line ends with =, let AI figure out the rest
+        if (!/=\s*$/.test(lineContent)) {
+            // Check if this line defines a variable - recalc dependent lines
+            if (/^[a-zA-Z_][\w]*\s*=/.test(lineContent)) {
+                console.log('Variable definition changed, recalculating document...');
+                await this.recalculateDocument(editor);
+            }
             return;
         }
 
-        // Extract the expression (everything before =)
         const expression = lineContent.replace(/=\s*$/, '').trim();
-        console.log('InlineSolver: Processing expression:', expression);
+        console.log('InlineSolver: Processing:', expression);
         
-        // Check if it's math or a question
-        const isMath = this.isMathExpression(expression);
-        const isQuestion = this.isQuestion(expression);
+        // Cache this calculation
+        const editorId = editor.getId();
+        const cacheKey = `${editorId}:${lineNumber}`;
+        this.calculationCache.set(cacheKey, expression);
         
-        console.log('InlineSolver: isMath=', isMath, 'isQuestion=', isQuestion);
-        
-        if (!isMath && !isQuestion) {
-            console.log('InlineSolver: Not math or question, skipping');
-            return;
-        }
-
-        // Avoid processing same line multiple times
+        // Avoid duplicates
         const lineKey = `${lineNumber}:${expression}`;
-        if (this.processingLines.has(lineKey)) {
-            console.log('InlineSolver: Already processing this line');
-            return;
-        }
+        if (this.processingLines.has(lineKey)) return;
         this.processingLines.add(lineKey);
 
         try {
-            // Get full document for context (variables!)
             const fullDocument = editor.getValue();
-            console.log('InlineSolver: Solving...');
-            const result = await this.solve(expression, fullDocument, isMath);
+            
+            // Let AI parse and solve everything
+            const result = await this.aiCalculator.solve(expression, fullDocument);
             console.log('InlineSolver: Result:', result);
             
             if (result && result.success) {
-                // Valid result - insert inline
-                console.log('InlineSolver: Inserting answer:', result.answer);
-                this.insertAnswer(editor, lineNumber, result.answer);
+                this.insertAnswerAt(editor, lineNumber, lineContent.length, result.answer);
                 this.clearDecoration(editor, lineNumber);
             } else if (result && result.error) {
-                // Error - show decoration and status
-                console.log('InlineSolver: Showing error:', result.error);
                 this.showError(editor, lineNumber, expression, result.error);
             }
         } catch (error) {
@@ -65,102 +57,46 @@ export class InlineSolver {
         }
     }
 
-    isMathExpression(text) {
-        // Check for math but NOT currency conversion
-        const isCurrency = /\d+\s+[A-Z]{3}\s+(in|to)\s+[A-Z]{3}/i.test(text);
-        const hasMath = /\d+\s*[\+\-\*\/]\s*\d+|%|sqrt|squared|cubed|\w+\s*[\+\-\*\/]/.test(text);
-        return hasMath && !isCurrency;
-    }
-
-    isQuestion(text) {
-        return /\d+\s+[A-Z]{3}\s+(in|to)\s+[A-Z]{3}/i.test(text);
-    }
-
-    async solve(expression, fullDocument, isMath) {
-        try {
-            if (isMath) {
-                // Use REAL math tool (no AI needed!)
-                const variables = MathTool.extractVariables(fullDocument);
-                const result = MathTool.evaluate(expression, variables);
-                return { success: true, answer: result.toString() };
-            } else {
-                // Currency conversion - use REAL API (no AI)
-                const currencyMatch = expression.match(/(\d+\.?\d*)\s+([A-Z]{3})\s+(in|to)\s+([A-Z]{3})/i);
-                if (currencyMatch) {
-                    const [, amount, from, , to] = currencyMatch;
-                    const result = await CurrencyTool.convert(parseFloat(amount), from, to);
+    async recalculateDocument(editor) {
+        const model = editor.getModel();
+        const lineCount = model.getLineCount();
+        
+        // Find all lines with calculations (end with =)
+        for (let i = 1; i <= lineCount; i++) {
+            const lineContent = model.getLineContent(i);
+            
+            // If line ends with = (and possibly has a previous answer)
+            if (lineContent.includes('=')) {
+                // Extract the expression part (before any existing answer)
+                const parts = lineContent.split('=');
+                if (parts.length >= 2) {
+                    // Has an existing answer - recalculate
+                    const expression = parts[0].trim();
                     
-                    if (result.success) {
-                        // Return ONLY the number, rounded to 2 decimals
-                        const rounded = Math.round(result.amount * 100) / 100;
-                        return { success: true, answer: rounded.toString() };
-                    } else {
-                        // API returned error
-                        return { 
-                            success: false, 
-                            error: result.error
-                        };
-                    }
+                    // Clear the old answer
+                    const newLine = expression + '=';
+                    model.pushEditOperations([], [{
+                        range: new monaco.Range(i, 1, i, lineContent.length + 1),
+                        text: newLine
+                    }], () => null);
+                    
+                    // Trigger recalculation
+                    await this.processLine(editor, i, newLine);
                 }
             }
-        } catch (error) {
-            console.error('Solver error:', error);
-            return { success: false, error: error.message };
-        }
-        
-        return null;
-    }
-
-    async askAI(question) {
-        try {
-            const response = await fetch('https://api.openai.com/v1/chat/completions', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${this.openAIClient.apiKey}`
-                },
-                body: JSON.stringify({
-                    model: 'gpt-3.5-turbo',
-                    messages: [
-                        { 
-                            role: 'system', 
-                            content: 'You are a calculator. Respond with ONLY a number or short factual answer. No words, no explanations, no units unless absolutely necessary.' 
-                        },
-                        { role: 'user', content: question }
-                    ],
-                    temperature: 0,
-                    max_tokens: 20
-                })
-            });
-
-            if (!response.ok) return null;
-
-            const data = await response.json();
-            let answer = data.choices[0].message.content.trim();
-            
-            // Extract only the number if possible
-            const numberMatch = answer.match(/[\d.]+/);
-            if (numberMatch) {
-                return numberMatch[0];
-            }
-            
-            return answer;
-        } catch (error) {
-            return null;
         }
     }
 
-    insertAnswer(editor, lineNumber, answer) {
-        const lineContent = editor.getModel().getLineContent(lineNumber);
-        const lineLength = lineContent.length;
+    // All removed - AI handles everything now
 
-        // Insert answer after the = sign (no space)
+    insertAnswerAt(editor, lineNumber, position, answer) {
+        // Insert answer at specific position in the line
         editor.executeEdits('inline-solver', [{
             range: {
                 startLineNumber: lineNumber,
-                startColumn: lineLength + 1,
+                startColumn: position + 1,
                 endLineNumber: lineNumber,
-                endColumn: lineLength + 1
+                endColumn: position + 1
             },
             text: answer
         }]);

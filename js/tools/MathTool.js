@@ -39,17 +39,50 @@ export class MathTool {
         const variables = {};
         const lines = document.split('\n');
         
-        // Look for variable definitions: varName = number
-        const varPattern = /^([a-zA-Z_]\w*)\s*=\s*([\d.]+)\s*$/;
+        // Look for variable definitions in multiple formats:
+        // 1. varName = number (e.g., x = 5)
+        // 2. varName = expression=result (e.g., x = 3+3=6)
+        // 3. varName = expression (e.g., total = price + tax)
         
         for (const line of lines) {
-            const match = line.match(varPattern);
-            if (match) {
-                const [, varName, value] = match;
+            // Pattern 1: variable = calculation=result
+            // Extract the result after the last =
+            const resultPattern = /^([a-zA-Z_][\w]*)\s*=\s*.+=\s*([\d.]+)\s*$/;
+            const resultMatch = line.match(resultPattern);
+            if (resultMatch) {
+                const [, varName, value] = resultMatch;
                 variables[varName] = parseFloat(value);
+                console.log(`Variable extracted: ${varName} = ${value} (from calculation)`);
+                continue;
+            }
+            
+            // Pattern 2: variable = number
+            const simplePattern = /^([a-zA-Z_][\w]*)\s*=\s*([\d.]+)\s*$/;
+            const simpleMatch = line.match(simplePattern);
+            if (simpleMatch) {
+                const [, varName, value] = simpleMatch;
+                variables[varName] = parseFloat(value);
+                console.log(`Variable extracted: ${varName} = ${value}`);
+                continue;
+            }
+            
+            // Pattern 3: variable = expression (try to evaluate it with existing variables)
+            const exprPattern = /^([a-zA-Z_][\w]*)\s*=\s*(.+)$/;
+            const exprMatch = line.match(exprPattern);
+            if (exprMatch) {
+                const [, varName, expression] = exprMatch;
+                try {
+                    const result = this.evaluate(expression.trim(), variables);
+                    variables[varName] = result;
+                    console.log(`Variable extracted: ${varName} = ${result} (from expression: ${expression})`);
+                } catch (e) {
+                    // Skip if can't evaluate
+                    console.log(`Skipping variable ${varName}: can't evaluate "${expression}"`);
+                }
             }
         }
         
+        console.log('All variables:', variables);
         return variables;
     }
 }

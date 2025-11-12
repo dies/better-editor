@@ -1,48 +1,40 @@
-// Currency Conversion Tool - Uses free Frankfurter API
+// Currency Conversion Tool - Uses ExchangeRate-API (supports 160+ currencies including UAH)
 export class CurrencyTool {
     static async convert(amount, fromCurrency, toCurrency) {
         try {
             const from = fromCurrency.toUpperCase();
             const to = toCurrency.toUpperCase();
             
-            // Use Frankfurter API (free, no API key needed, maintained by ECB)
+            // Use ExchangeRate-API (free, no API key needed, supports UAH and 160+ currencies)
             const response = await fetch(
-                `https://api.frankfurter.app/latest?amount=${amount}&from=${from}&to=${to}`
+                `https://api.exchangerate-api.com/v4/latest/${from}`
             );
 
             if (!response.ok) {
-                const errorData = await response.json().catch(() => null);
-                
-                // Check for specific errors
-                if (response.status === 404 || (errorData && errorData.message)) {
-                    return {
-                        success: false,
-                        error: `Invalid currency: ${from} or ${to}. Try: EUR, USD, GBP, PLN, UAH, CHF, JPY`
-                    };
-                }
-                
                 return {
                     success: false,
-                    error: 'Currency API error. Check your internet connection.'
+                    error: `Invalid currency: ${from}. Supported: EUR, USD, GBP, PLN, UAH, CHF, JPY, etc.`
                 };
             }
 
             const data = await response.json();
-            const convertedAmount = data.rates[to];
+            const rate = data.rates[to];
             
-            if (!convertedAmount) {
+            if (!rate) {
                 return {
                     success: false,
-                    error: `Currency ${to} not supported`
+                    error: `Invalid currency: ${to}. Supported: EUR, USD, GBP, PLN, UAH, CHF, JPY, etc.`
                 };
             }
+
+            const convertedAmount = amount * rate;
 
             return {
                 success: true,
                 amount: convertedAmount,
                 from: from,
                 to: to,
-                rate: convertedAmount / amount,
+                rate: rate,
                 date: data.date
             };
         } catch (error) {
@@ -56,8 +48,9 @@ export class CurrencyTool {
 
     static async getSupportedCurrencies() {
         try {
-            const response = await fetch('https://api.frankfurter.app/currencies');
-            return await response.json();
+            const response = await fetch('https://api.exchangerate-api.com/v4/latest/USD');
+            const data = await response.json();
+            return Object.keys(data.rates);
         } catch (error) {
             return null;
         }
