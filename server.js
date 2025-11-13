@@ -19,10 +19,10 @@ app.get('*', (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`
-🚀 NotAIs - AI-Powered Note Editor
+🚀 Notes - AI-Powered Editor
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ✅ Server: http://localhost:${PORT}
-📝 Ready for intelligent note-taking
+📝 Ready for note-taking
 🔄 Auto-reload enabled
 
 Press Ctrl+C to stop

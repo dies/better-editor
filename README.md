@@ -1,10 +1,10 @@
-# NotAIs
+# Notes
 
 > AI-powered note editor with real-time intelligent assistance
 
-**NotAIs** (pronounced "Notes") - A minimalist two-panel note editor that makes your writing smarter.
+A minimalist two-panel note editor that makes your writing smarter. Write in the left panel, see AI magic in the right panel - markdown preview, text polishing, math solving, and instant answers to your questions.
 
-A minimalist note editor that makes you smarter. Write in the left panel, see AI magic in the right panel - markdown preview, text polishing, math solving, and instant answers to your questions.
+**✨ [Try it now](https://dies.github.io/better-editor/)**
 
 ## ✨ Features
 
@@ -64,14 +64,14 @@ Server runs at http://localhost:8000 with:
 
 ### Production Deployment
 
-**GitHub Pages (Recommended)**
+**GitHub Pages**
 
 ```bash
 # Deploy to GitHub Pages
 npm run deploy
 ```
 
-Your app will be live at `https://YOUR_USERNAME.github.io/better-editor/`
+**Live Demo:** https://dies.github.io/better-editor/
 
 See [DEPLOY.md](DEPLOY.md) for detailed deployment instructions.
 

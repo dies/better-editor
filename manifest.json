@@ -1,8 +1,8 @@
 {
-  "name": "NotAIs - AI-Powered Note Editor",
-  "short_name": "NotAIs",
+  "name": "Notes - AI-Powered Editor",
+  "short_name": "Notes",
   "description": "Intelligent note-taking with AI assistance - markdown preview, text polishing, math solving, and instant answers",
-  "start_url": "/",
+  "start_url": "./",
   "display": "standalone",
   "background_color": "#1e1e1e",
   "theme_color": "#1e1e1e",
@@ -23,7 +23,7 @@
   ],
   "file_handlers": [
     {
-      "action": "/",
+      "action": "./",
       "accept": {
         "text/javascript": [".js", ".mjs"],
         "text/plain": [".txt"],
@@ -41,7 +41,7 @@
       "name": "New File",
       "short_name": "New",
       "description": "Create a new file",
-      "url": "/?action=new"
+      "url": "./?action=new"
     }
   ]
 }

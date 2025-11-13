@@ -1,4 +1,4 @@
-// NotAIs - AI-Powered Note Editor
+// Notes - AI-Powered Editor
 import { OpenAIClient } from './js/OpenAIClient.js';
 import { TextEditor } from './js/TextEditor.js';
 import { TabManager } from './js/TabManager.js';
@@ -6,8 +6,9 @@ import { SettingsManager } from './js/SettingsManager.js';
 import { FileHandler } from './js/FileHandler.js';
 import { InlineSolver } from './js/InlineSolver.js';
 import { IncrementalCorrector } from './js/IncrementalCorrector.js';
+import { StorageManager } from './js/StorageManager.js';
 
-class NotAIs {
+class Notes {
     constructor() {
         this.init().catch(error => {
             console.error('❌ Fatal error during initialization:', error);
@@ -23,8 +24,6 @@ class NotAIs {
     }
 
     async init() {
-        console.log('🚀 Starting NotAIs...');
-        
         // Register service worker ONLY in production
         const isDevelopment = window.location.hostname === 'localhost' || 
                               window.location.hostname === '127.0.0.1';
@@ -33,22 +32,18 @@ class NotAIs {
             try {
                 const registration = await navigator.serviceWorker.register('/service-worker.js');
                 registration.update();
-                console.log('✅ Service Worker registered');
             } catch (error) {
                 console.error('Service Worker error:', error);
             }
         } else if (isDevelopment) {
-            console.log('🔧 Development mode - Service Worker DISABLED');
-            // Unregister any existing service workers
+            // Unregister any existing service workers in dev
             const registrations = await navigator.serviceWorker.getRegistrations();
             for (const registration of registrations) {
                 await registration.unregister();
-                console.log('🗑️ Unregistered old service worker');
             }
         }
 
         // Load Monaco
-        console.log('Loading Monaco...');
         await this.loadMonaco();
 
         // Initialize settings FIRST to get theme
@@ -65,6 +60,7 @@ class NotAIs {
         this.inlineSolver = new InlineSolver(this.openAI);
         this.incrementalCorrector = new IncrementalCorrector(this.openAI);
         this.incrementalCorrector.setEnabled(this.settings.smartPanelEnabled);
+        this.storageManager = new StorageManager();
         
         // Use IncrementalCorrector instead of SmartPanel for better performance
         this.incrementalCorrector.onUpdate = (correctedText, isStreaming) => {
@@ -83,8 +79,29 @@ class NotAIs {
         // Initialize commands
         this.commands = this.initCommands();
 
-        // Create initial empty tab
-        this.tabManager.createTab('Untitled.md', '');
+        // Restore tabs from localStorage or create empty tab
+        const restoredTabs = this.storageManager.restoreTabs();
+        if (restoredTabs && restoredTabs.length > 0) {
+            // Restore all tabs
+            for (const tabData of restoredTabs) {
+                const tabId = this.tabManager.createTab(tabData.filename, tabData.content);
+                const tab = this.tabManager.getTab(tabId);
+                if (tab) {
+                    tab.modified = tabData.modified;
+                    tab.language = tabData.language;
+                }
+            }
+        } else {
+            // Create initial empty tab
+            this.tabManager.createTab('Untitled.md', '');
+        }
+        
+        // Start auto-save every 5 seconds
+        this.storageManager.startAutoSave(() => {
+            const tabs = this.tabManager.getAllTabs();
+            this.showAutoSaveIndicator();
+            return tabs;
+        });
         
         // Apply theme BEFORE creating editor
         this.applyTheme();
@@ -102,8 +119,6 @@ class NotAIs {
         // Setup and render
         this.setupEventListeners();
         this.switchTab(this.tabManager.activeTabId);
-        
-        console.log('✅ NotAIs ready');
     }
 
     async loadMonaco() {
@@ -111,22 +126,8 @@ class NotAIs {
             require.config({ 
                 paths: { vs: 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs' } 
             });
-            require(['vs/editor/editor.main'], () => {
-                console.log('✅ Monaco loaded');
-                // Don't wait for marked - it's optional and loads async
-                resolve();
-            });
+            require(['vs/editor/editor.main'], resolve);
         });
-        
-        // Check for marked separately (don't block)
-        setTimeout(() => {
-            if (typeof marked !== 'undefined' && typeof marked.parse === 'function') {
-                console.log('✅ marked.parse() available from lib/marked.umd.js');
-            } else {
-                console.error('❌ marked not loaded from lib/marked.umd.js');
-                console.log('window.marked:', window.marked);
-            }
-        }, 500);
     }
 
     switchTab(tabId) {
@@ -149,7 +150,7 @@ class NotAIs {
             this.tabManager.renderTabs();
             this.updateStatus();
             
-            const cursorLine = editor.getPosition().lineNumber - 1; // 0-indexed
+            const cursorLine = editor.getPosition().lineNumber - 1;
             
             // Check for inline solving on the changed line
             if (e.changes.length > 0) {
@@ -164,27 +165,22 @@ class NotAIs {
             }
             
             // Incremental correction for right panel
-            console.log('═══════════════════════════════════════');
-            console.log('📝 EDITOR CHANGED');
-            console.log('Content length:', content.length);
-            console.log('Smart panel enabled:', this.settings.smartPanelEnabled);
-            console.log('Correction prompt:', this.settings.correctionPrompt);
-            console.log('═══════════════════════════════════════');
-            
             if (this.settings.smartPanelEnabled) {
-                console.log('🔄 Calling scheduleCorrection...');
                 this.incrementalCorrector.scheduleCorrection(
                     content, 
                     cursorLine, 
                     this.settings.correctionPrompt
                 );
-            } else {
-                console.log('❌ Smart panel is DISABLED in settings!');
             }
         });
 
         editor.onDidChangeCursorPosition(() => {
             this.updateStatus();
+        });
+
+        // Sync scroll between editor and right panel
+        editor.onDidScrollChange((e) => {
+            this.syncScroll(editor);
         });
 
         this.tabManager.renderTabs();
@@ -208,6 +204,41 @@ class NotAIs {
         pre.textContent = correctedText;
         container.innerHTML = '';
         container.appendChild(pre);
+        
+        // Setup scroll sync for right panel
+        this.setupRightPanelScroll();
+    }
+
+    syncScroll(editor) {
+        const rightPanel = document.getElementById('smartPanelContent');
+        if (!rightPanel) return;
+
+        const scrollTop = editor.getScrollTop();
+        rightPanel.scrollTop = scrollTop;
+    }
+
+    setupRightPanelScroll() {
+        const rightPanel = document.getElementById('smartPanelContent');
+        if (!rightPanel) return;
+
+        // Remove old listener if exists
+        if (this.rightPanelScrollHandler) {
+            rightPanel.removeEventListener('scroll', this.rightPanelScrollHandler);
+        }
+
+        // Sync from right panel to editor
+        this.rightPanelScrollHandler = () => {
+            const tab = this.tabManager.getActiveTab();
+            if (!tab) return;
+            
+            const editor = this.textEditor.getEditor(tab.id);
+            if (!editor) return;
+
+            const scrollTop = rightPanel.scrollTop;
+            editor.setScrollTop(scrollTop);
+        };
+
+        rightPanel.addEventListener('scroll', this.rightPanelScrollHandler);
     }
 
     closeTab(tabId) {
@@ -240,6 +271,9 @@ class NotAIs {
             this.tabManager.markSaved(tab.id, result.filename);
             this.tabManager.renderTabs();
             this.setStatus('Saved ✓');
+            
+            // Save to localStorage immediately after disk save
+            this.storageManager.saveTabs(this.tabManager.getAllTabs());
         }
     }
 
@@ -270,14 +304,14 @@ class NotAIs {
         if (!msg || msg === 'Idle') {
             statusEl.textContent = 'AI: Idle';
             statusEl.classList.add('idle');
-        } else if (msg.includes('Waiting for typing')) {
+        } else if (msg.includes('Waiting')) {
             statusEl.textContent = 'AI: Waiting...';
             statusEl.classList.add('waiting');
-        } else if (msg.includes('Sending') || msg.includes('Waiting for AI')) {
-            statusEl.textContent = 'AI: Requesting...';
+        } else if (msg.includes('Sending') || msg.includes('correcting')) {
+            statusEl.textContent = 'AI: Working...';
             statusEl.classList.add('active');
-        } else if (msg.includes('Streaming')) {
-            statusEl.textContent = 'AI: Streaming';
+        } else if (msg.includes('Streaming') || msg.includes('Rendering')) {
+            statusEl.textContent = 'AI: ' + msg;
             statusEl.classList.add('streaming');
         } else if (msg.includes('Error')) {
             statusEl.textContent = 'AI: ' + msg;
@@ -286,6 +320,18 @@ class NotAIs {
             statusEl.textContent = 'AI: ' + msg;
             statusEl.classList.add('active');
         }
+    }
+
+    showAutoSaveIndicator() {
+        const statusEl = document.getElementById('autoSaveStatus');
+        if (!statusEl) return;
+
+        statusEl.textContent = '💾 Auto-saved';
+        statusEl.classList.add('visible');
+
+        setTimeout(() => {
+            statusEl.classList.remove('visible');
+        }, 2000);
     }
 
     copySmartPanelContent() {
@@ -498,5 +544,5 @@ class NotAIs {
 
 // Initialize when DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
-    window.app = new NotAIs();
+    window.app = new Notes();
 });

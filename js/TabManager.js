@@ -39,6 +39,10 @@ export class TabManager {
         return this.getTab(this.activeTabId);
     }
 
+    getAllTabs() {
+        return this.tabs;
+    }
+
     switchToTab(tabId) {
         this.activeTabId = tabId;
     }

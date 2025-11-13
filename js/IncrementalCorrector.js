@@ -12,56 +12,44 @@ export class IncrementalCorrector {
     
     setEnabled(enabled) {
         this.isEnabled = enabled;
-        console.log('IncrementalCorrector enabled:', enabled);
     }
 
     scheduleCorrection(content, cursorLine, correctionPrompt) {
-        console.log('🟢 scheduleCorrection CALLED');
-        console.log('  - Content length:', content.length);
-        console.log('  - First 100 chars:', content.substring(0, 100));
-        console.log('  - isEnabled:', this.isEnabled);
-        console.log('  - API key exists:', !!this.openAIClient?.apiKey);
-        
         clearTimeout(this.updateTimeout);
         
         if (!content.trim()) {
-            console.log('⚠️ Content is empty');
             if (this.onUpdate) {
                 this.onUpdate('');
             }
             return;
         }
 
-        console.log('⏱️ Setting 1-second timer...');
-        this.setStatus('Waiting for typing to stop...');
+        this.setStatus('Waiting...');
 
         this.updateTimeout = setTimeout(async () => {
-            console.log('⏰ TIMER FIRED! Calling correctSection NOW...');
             await this.correctSection(content, cursorLine, correctionPrompt);
         }, 1000);
     }
 
     async correctSection(content, cursorLine, correctionPrompt) {
-        console.log('🔵 correctSection called');
+        console.log('correctSection called, content length:', content.length);
+        console.log('isMarkdown?', this.isMarkdown(content));
+        console.log('API key?', !!this.openAIClient.apiKey);
         
         // Check if it's markdown
-        const isMarkdown = this.isMarkdown(content);
-        console.log('  - Is markdown?', isMarkdown);
-        
-        if (isMarkdown) {
-            console.log('📄 Rendering as markdown...');
-            this.setStatus('Rendering markdown...');
+        if (this.isMarkdown(content)) {
+            console.log('→ Rendering markdown');
+            this.setStatus('Rendering...');
             this.renderMarkdown(content);
             this.setStatus('Idle');
             return;
         }
         
-        console.log('📝 Plain text mode - checking API key...');
-        console.log('  - API key present?', !!this.openAIClient.apiKey);
+        console.log('→ Plain text, checking API key...');
         
         // Otherwise, use AI to improve the text
         if (!this.openAIClient.apiKey) {
-            console.log('❌ NO API KEY - showing original text');
+            console.log('→ No API key, showing original');
             const container = document.getElementById('smartPanelContent');
             if (container) {
                 const pre = document.createElement('pre');
@@ -74,9 +62,10 @@ export class IncrementalCorrector {
             return;
         }
         
-        console.log('✅ API key found, calling correctFull...');
-        this.setStatus('Sending to AI...');
+        console.log('→ Calling correctFull with AI...');
+        this.setStatus('AI correcting...');
         await this.correctFull(content, correctionPrompt);
+        console.log('→ correctFull finished');
     }
 
     async correctSectionOLD(content, cursorLine, correctionPrompt) {
@@ -129,18 +118,16 @@ export class IncrementalCorrector {
     }
 
     async correctFull(content, correctionPrompt) {
-        console.log('correctFull called with content:', content.substring(0, 50));
-        console.log('Correction prompt:', correctionPrompt);
-        
-        this.setStatus('Sending to AI...');
+        console.log('correctFull START');
+        console.log('  content:', content.substring(0, 100));
+        console.log('  prompt:', correctionPrompt);
         
         const container = document.getElementById('smartPanelContent');
         if (!container) {
-            console.error('Container not found!');
+            console.error('NO CONTAINER!');
             return;
         }
         
-        // Show streaming container
         container.innerHTML = '<pre class="smart-analysis streaming"></pre>';
         const pre = container.querySelector('.smart-analysis');
         
@@ -152,7 +139,7 @@ RULES:
 - NO comments, explanations, or headers
 - Preserve all line breaks exactly`;
 
-            console.log('Sending to OpenAI...');
+            console.log('→ Fetching from OpenAI...');
             
             const response = await fetch('https://api.openai.com/v1/chat/completions', {
                 method: 'POST',
@@ -172,13 +159,15 @@ RULES:
             });
 
             if (!response.ok) {
+                console.error('API response not OK:', response.status, response.statusText);
                 throw new Error(`API error: ${response.statusText}`);
             }
 
-            console.log('Streaming response...');
+            console.log('→ Response OK, reading stream...');
             const reader = response.body.getReader();
             const decoder = new TextDecoder();
             let fullContent = '';
+            let chunkCount = 0;
 
             while (true) {
                 const { done, value } = await reader.read();
@@ -198,22 +187,27 @@ RULES:
                             if (text) {
                                 fullContent += text;
                                 pre.textContent = fullContent;
+                                chunkCount++;
+                                if (chunkCount === 1) {
+                                    console.log('→ First chunk received, streaming...');
+                                }
                                 this.setStatus('Streaming...');
                             }
                         } catch (e) {
-                            // Skip
+                            // Skip parse errors
                         }
                     }
                 }
             }
 
+            console.log(`✅ Stream complete! Got ${chunkCount} chunks, ${fullContent.length} chars`);
             pre.classList.remove('streaming');
             this.setStatus('Idle');
-            console.log('✅ AI correction complete');
         } catch (error) {
-            console.error('Correction error:', error);
+            console.error('❌ AI correction FAILED:', error);
+            console.error('  Error details:', error.message);
             pre.textContent = `Error: ${error.message}`;
-            this.setStatus('Error: ' + error.message);
+            this.setStatus('Error');
         }
     }
 
@@ -305,38 +299,32 @@ CRITICAL RULES:
 
     renderMarkdown(content) {
         const container = document.getElementById('smartPanelContent');
-        if (!container) {
-            console.error('❌ Container not found!');
-            return;
-        }
-
-        console.log('📄 Rendering markdown, content length:', content.length);
-        console.log('📄 window.markedLoaded?', window.markedLoaded);
-        console.log('📄 typeof window.marked:', typeof window.marked);
+        if (!container) return;
         
         // Wait for marked to load
         if (!window.markedLoaded) {
-            console.log('⏳ Waiting for marked to load...');
-            container.innerHTML = '<div class="panel-loading">Loading markdown renderer...</div>';
+            container.innerHTML = '<div class="panel-loading">Loading...</div>';
             setTimeout(() => this.renderMarkdown(content), 200);
             return;
         }
         
         const markedLib = window.marked;
-        
         if (!markedLib || typeof markedLib.parse !== 'function') {
-            console.error('❌ MARKED NOT AVAILABLE!');
-            container.innerHTML = '<div class="panel-error">Markdown failed to load</div>';
+            container.innerHTML = '<div class="panel-error">Markdown library not available</div>';
             return;
         }
 
         try {
             const html = markedLib.parse(content);
             container.innerHTML = `<div class="markdown-content">${html}</div>`;
-            console.log('✅ Markdown rendered with marked.parse()');
+            
+            // Trigger scroll sync setup after render
+            if (window.app && window.app.setupRightPanelScroll) {
+                window.app.setupRightPanelScroll();
+            }
         } catch (error) {
-            console.error('❌ Marked rendering error:', error);
-            container.innerHTML = `<div class="panel-error">Markdown error: ${error.message}</div>`;
+            console.error('Markdown error:', error);
+            container.innerHTML = `<div class="panel-error">Markdown error</div>`;
         }
     }
 

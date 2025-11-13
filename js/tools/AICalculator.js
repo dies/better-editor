@@ -9,11 +9,8 @@ export class AICalculator {
 
     async solve(expression, documentContext) {
         if (!this.openAIClient.apiKey) {
-            console.error('AICalculator: No API key');
             return { success: false, error: 'No API key set' };
         }
-        
-        console.log('AICalculator: Solving expression:', expression);
 
         const tools = [
             {
@@ -90,18 +87,13 @@ export class AICalculator {
             }
 
             const data = await response.json();
-            console.log('Full AI response:', JSON.stringify(data, null, 2));
-            
             const message = data.choices[0].message;
-            console.log('AI message:', message);
 
             // Check if AI wants to call a function
             if (message.tool_calls && message.tool_calls.length > 0) {
                 const toolCall = message.tool_calls[0];
                 const functionName = toolCall.function.name;
                 const args = JSON.parse(toolCall.function.arguments);
-
-                console.log('AI calling function:', functionName, 'with args:', args);
 
                 // Execute the function
                 if (functionName === 'calculate_math') {

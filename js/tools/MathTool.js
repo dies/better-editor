@@ -52,7 +52,6 @@ export class MathTool {
             if (resultMatch) {
                 const [, varName, value] = resultMatch;
                 variables[varName] = parseFloat(value);
-                console.log(`Variable extracted: ${varName} = ${value} (from calculation)`);
                 continue;
             }
             
@@ -62,7 +61,6 @@ export class MathTool {
             if (simpleMatch) {
                 const [, varName, value] = simpleMatch;
                 variables[varName] = parseFloat(value);
-                console.log(`Variable extracted: ${varName} = ${value}`);
                 continue;
             }
             
@@ -74,15 +72,11 @@ export class MathTool {
                 try {
                     const result = this.evaluate(expression.trim(), variables);
                     variables[varName] = result;
-                    console.log(`Variable extracted: ${varName} = ${result} (from expression: ${expression})`);
                 } catch (e) {
                     // Skip if can't evaluate
-                    console.log(`Skipping variable ${varName}: can't evaluate "${expression}"`);
                 }
             }
         }
-        
-        console.log('All variables:', variables);
         return variables;
     }
 }

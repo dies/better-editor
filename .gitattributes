@@ -1,0 +1,8 @@
+# Ensure correct MIME types for GitHub Pages
+*.js text
+*.json text
+*.html text
+*.css text
+*.md text
+*.svg text
+

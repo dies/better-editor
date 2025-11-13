@@ -1,5 +1,5 @@
 const CACHE_VERSION = Date.now(); // Auto-updated on deploy
-const CACHE_NAME = `notais-v${CACHE_VERSION}`;
+const CACHE_NAME = `notes-v${CACHE_VERSION}`;
 const urlsToCache = [
   '/',
   '/index.html',
